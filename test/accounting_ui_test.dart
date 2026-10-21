@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:elnota/core/services/app_fonts.dart';
+import 'package:elnota/core/utils/app_routes.dart';
+import 'package:elnota/features/invoices/views/invoice_form_view.dart';
+import 'package:elnota/features/payments/views/add_payment_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:elnota/app/theme/app_theme.dart';
@@ -106,4 +109,40 @@ void main() {
     });
     await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();
   });
+  testWidgets('create invoice and customer payment from forms, preserve invalid input and refresh receipt', (tester) async {
+    tester.view.physicalSize=const Size(390,1000);tester.view.devicePixelRatio=1;
+    addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
+    final db=AppDatabase(NativeDatabase.memory());final dao=AppDao(db),repo=AccountingRepository(dao:AppDao(db));
+    // Use one DAO for every screen's mutation notifications in this workflow.
+    final shared=AccountingRepository(dao:dao);
+    addTearDown(() async {await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();await repo.dao.close();await dao.close();await db.close();Get.reset();});
+    final customer=await dao.createCustomer(name:'عميل النموذج');
+    await tester.pumpWidget(GetMaterialApp(locale:const Locale('ar'),theme:AppTheme.light,
+      home:Directionality(textDirection:TextDirection.rtl,child:InvoiceFormView(repository:shared,initialCustomerId:customer)),
+      getPages:[GetPage(name:AppRoutes.invoiceDetail,page:()=>Directionality(textDirection:TextDirection.rtl,child:InvoiceDetailView(repository:shared))),
+        GetPage(name:AppRoutes.paymentCreate,page:()=>Directionality(textDirection:TextDirection.rtl,child:AddPaymentView(repository:shared,initialCustomerId:customer)))],
+    ));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0),'150.505');
+    await tester.tap(find.text('حفظ وعرض الفاتورة'));await tester.pumpAndSettle();
+    expect((await shared.read()).invoices,isEmpty);
+    expect(tester.widget<TextField>(find.byType(TextField).at(0)).controller!.text,'150.505');
+    await tester.enterText(find.byType(TextField).at(0),'150.50');
+    await tester.enterText(find.byType(TextField).at(1),'10.25');
+    final submit=tester.widget<FilledButton>(find.widgetWithText(FilledButton,'حفظ وعرض الفاتورة')).onPressed!;
+    submit();submit(); // Same frame must still create one invoice.
+    await tester.pumpAndSettle();
+    expect(tester.takeException(),isNull);
+    expect((await shared.read()).invoices.length,1);
+    expect((await shared.read()).invoices.single.netMinor,14025);
+    Get.toNamed(AppRoutes.paymentCreate);await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first,'40.25');
+    await tester.tap(find.text('حفظ الدفعة'));await tester.pumpAndSettle();
+    expect((await shared.read()).payments.length,1);
+    expect((await shared.read()).outstandingMinor,10000);
+    expect(find.byType(InvoiceReceipt),findsOneWidget);
+    expect(tester.widget<InvoiceReceipt>(find.byType(InvoiceReceipt)).account.balance.outstandingMinor,10000);
+    expect(tester.takeException(),isNull);
+  });
+
 }

@@ -9,12 +9,14 @@ import '../../accounting/repositories/accounting_repository.dart';
 import '../../accounting/views/accounting_pages.dart';
 
 class AddPaymentView extends StatefulWidget {
-  const AddPaymentView({super.key});
+  const AddPaymentView({super.key,this.repository,this.initialCustomerId});
+  final AccountingRepository? repository;
+  final String? initialCustomerId;
   @override
   State<AddPaymentView> createState()=>_AddPaymentViewState();
 }
 class _AddPaymentViewState extends State<AddPaymentView> {
-  final repo=AccountingRepository();
+  late final repo=widget.repository??AccountingRepository();
   late final stream=repo.watch();
   final amount=TextEditingController(),notes=TextEditingController();
   final operationId=const Uuid().v4();
@@ -23,7 +25,7 @@ class _AddPaymentViewState extends State<AddPaymentView> {
   bool busy=false;
   String? error;
   @override
-  void initState() { super.initState(); customerId=(Get.arguments as Map<String,dynamic>?)?['customer_id'] as String?; }
+  void initState() { super.initState(); customerId=widget.initialCustomerId??((Get.arguments as Map<String,dynamic>?)?['customer_id'] as String?); }
   @override
   void dispose() { amount.dispose();notes.dispose();super.dispose(); }
   Future<void> save() async {

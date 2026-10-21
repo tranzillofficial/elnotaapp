@@ -76,7 +76,7 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
             Text('${ui('صافي الفاتورة','Invoice net')}: ${MoneyUtils.formatMinor(invoice.netMinor)}'),
           ]),
           const SizedBox(height:8),Wrap(spacing:8,runSpacing:8,children:[
-            SizedBox(width:155,child:DropdownButtonFormField<ReceiptPaper>(initialValue:paper,decoration:InputDecoration(labelText:ui('مقاس الورق','Paper size'),isDense:true),
+            SizedBox(width:155,child:DropdownButtonFormField<ReceiptPaper>(key:ValueKey(paper),initialValue:paper,decoration:InputDecoration(labelText:ui('مقاس الورق','Paper size'),isDense:true),
               items:const [DropdownMenuItem(value:ReceiptPaper.a4,child:Text('A4')),DropdownMenuItem(value:ReceiptPaper.mm80,child:Text('80 mm')),DropdownMenuItem(value:ReceiptPaper.mm58,child:Text('58 mm'))],
               onChanged:busy?null:(v)=>setState(()=>paper=v??paper))),
             FilledButton.icon(onPressed:busy?null:()=>_run(() async {final png=await export.capture(receiptKey);await export.printSystem(png,paper,'Invoice_${shortId(id)}');}),

@@ -2,6 +2,9 @@ name: Flutter accounting and printing checks
 on:
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: elnota-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

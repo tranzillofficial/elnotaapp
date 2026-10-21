@@ -9,12 +9,14 @@ import '../../accounting/repositories/accounting_repository.dart';
 import '../../accounting/views/accounting_pages.dart';
 
 class InvoiceFormView extends StatefulWidget {
-  const InvoiceFormView({super.key});
+  const InvoiceFormView({super.key,this.repository,this.initialCustomerId});
+  final AccountingRepository? repository;
+  final String? initialCustomerId;
   @override
   State<InvoiceFormView> createState()=>_InvoiceFormViewState();
 }
 class _InvoiceFormViewState extends State<InvoiceFormView> {
-  final repo=AccountingRepository();
+  late final repo=widget.repository??AccountingRepository();
   late final stream=repo.watch();
   final amount=TextEditingController(),discount=TextEditingController(),notes=TextEditingController();
   final lines=<Map<String,dynamic>>[];
@@ -25,7 +27,7 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
   int get total=>manual?(MoneyUtils.parseToMinor(amount.text)??0):lines.fold<int>(0,(s,l)=>s+(l['quantity'] as int)*(l['unit_price_minor'] as int));
   int get discountMinor=>MoneyUtils.parseToMinor(discount.text)??0;
   @override
-  void initState() {super.initState();customerId=(Get.arguments as Map<String,dynamic>?)?['customer_id'] as String?;}
+  void initState() {super.initState();customerId=widget.initialCustomerId??((Get.arguments as Map<String,dynamic>?)?['customer_id'] as String?);}
   @override
   void dispose() {amount.dispose();discount.dispose();notes.dispose();super.dispose();}
   Future<void> addLine({int? index}) async {
