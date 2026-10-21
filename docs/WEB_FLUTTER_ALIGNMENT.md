@@ -112,6 +112,7 @@ final stagedId = await repo.stage(
 - `python scripts/verify_web_alignment.py`: نجحت 4 اختبارات. تنفذ SQL الحقيقي في SQLite، وتقارن أعمدة جداول cache بالمرجع، وتجرب ترقية فيها بيانات قديمة وإعادة تطبيقها وتتحقق من بقاء الأموال والـoutbox والـcursor، وتفحص حدود قراءة الـadapter.
 - أضيف `test/web_alignment_test.dart`: اختبارات round-trip، أرصدة، دفعات مكررة، دقة وكمية كسرية، صلاحيات account DTO، وترقية ملف SQLite v1 وإعادة فتحه عبر Drift وstaging معزول.
 - Flutter/Dart SDK غير متاحين في بيئة التنفيذ؛ اختبارات Dart والتحليل والبناء لم تُشغل محليًا. لا يوجد APK أو Windows build أو web build منتج هنا.
+- نجح فحص العقود على GitHub أيضًا. فحص Flutter الأول على latest stable 3.47.7 توقف عند حل الاعتماديات لأن SDK pins تتطلب تغيير خمس مكتبات؛ لم تصل العملية للتحليل أو الاختبارات ولم تتغير ملفات المشروع. تم تثبيت workflow على Flutter 3.44.4 المطابق للـrevision المسجل في .metadata وإعادة الفحص.
 - أضيف workflow للتحقق اليدوي/طلبات الدمج. يحل الاعتماديات في نسخة مؤقتة فقط مع `--enforce-lockfile`. لم يُعلن نجاح الـworkflow قبل تشغيله.
 - لم يتغير `pubspec.yaml` أو `pubspec.lock` ولم تضاف مكتبات.
 

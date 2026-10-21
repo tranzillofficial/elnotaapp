@@ -35,3 +35,5 @@ The dependency manifests are frozen. No packages were installed into this reposi
 Platform assessment: shared GetX/domain/SQL contract code targets all Flutter platforms. This task adds no native plugin. Native SQLite migration tests require a working Flutter toolchain. Web still needs matching Drift WASM/worker assets and DriftWebOptions; file export currently imports dart:io; secure storage, printing, sharing and background plugins require platform-specific validation. Android/iOS/Windows/web parity is not verified by adding schema fields.
 
 SDK requirement from pubspec.yaml: `^3.12.2`. A matching toolchain and all pinned dependencies must be available for the CI job. No unsupported SDK downgrade or dependency re-resolution is included.
+
+CI is pinned to Flutter 3.44.4, matching .metadata revision ad70ec4617166f1c38e5d2bfd388af71fda14f06 (verified against the official Flutter commit). The first run with latest stable 3.47.7 stopped at --enforce-lockfile because its SDK pins require five dependency changes; no manifest was changed.
