@@ -76,7 +76,7 @@ void main() {
 
   test('duplicate IDs, orphan references and duplicate receipt IDs are rejected', () {
     final duplicate = fixture();
-    duplicate['customers'].add(<String, dynamic>{...duplicate['customers'][0]});
+    duplicate['customers'].add(Map<String, String>.from(duplicate['customers'][0] as Map));
     expect(() => WebImportPreview.inspect(duplicate), throwsFormatException);
     final orphan = fixture();
     orphan['customerPayments'][0]['customerId'] = 'other';
