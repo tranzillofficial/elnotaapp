@@ -99,6 +99,7 @@ abstract class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamilyFallback: const ['ElNotaArabic'],
       colorScheme: colorScheme,
       scaffoldBackgroundColor: scaffoldBg,
       textTheme: textTheme,

@@ -116,10 +116,10 @@ class _AccountingPageState extends State<AccountingPage> {
         const SizedBox(height:8),
         Wrap(spacing:8,runSpacing:4,crossAxisAlignment:WrapCrossAlignment.center,children:[
           if(section!=AccountingSection.payments) SizedBox(width:160,child:DropdownButtonFormField<String>(
-            initialValue:filter,decoration:InputDecoration(labelText:ui('عرض','Show'),isDense:true),
+            initialValue:filter,isExpanded:true,decoration:InputDecoration(labelText:ui('عرض','Show'),isDense:true),
             items:(section==AccountingSection.customers?{'all':ui('كل العملاء','All customers'),'due':ui('عليهم مستحق','Outstanding'),'settled':ui('حساب مسدد','Settled'),'credit':ui('رصيد مقدم','Credit')}:
               {'all':ui('كل الفواتير','All invoices'),'posted':ui('مسجلة','Posted'),'draft':ui('مسودات','Drafts'),'voided':ui('ملغاة','Voided')})
-              .entries.map((e)=>DropdownMenuItem(value:e.key,child:Text(e.value))).toList(),onChanged:(v)=>setState(()=>filter=v??'all'))),
+              .entries.map((e)=>DropdownMenuItem(value:e.key,child:Text(e.value,maxLines:1,overflow:TextOverflow.ellipsis))).toList(),onChanged:(v)=>setState(()=>filter=v??'all'))),
           if(section==AccountingSection.customers) TextButton.icon(onPressed:()=>setState(()=>sortByBalance=!sortByBalance),icon:const Icon(Icons.sort,size:18),
             label:Text(sortByBalance?ui('حسب المديونية','By balance'):ui('حسب الاسم','By name')))
           else OutlinedButton.icon(onPressed:_dates,icon:const Icon(Icons.date_range,size:18),label:Text(range==null?ui('كل التواريخ','All dates'):'${dateText(range!.start)} / ${dateText(range!.end)}')),

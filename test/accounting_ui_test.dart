@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:elnota/core/services/app_fonts.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:elnota/app/theme/app_theme.dart';
@@ -16,6 +18,11 @@ import 'package:elnota/features/invoices/views/invoice_detail_view.dart';
 import 'package:elnota/features/invoices/widgets/invoice_receipt.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    await loadAppFonts();
+    await (FontLoader('Manrope')..addFont(rootBundle.load('assets/fonts/Manrope/static/Manrope-Regular.ttf'))).load();
+  });
   Future<void> capture(WidgetTester tester,GlobalKey key,String name) async {
     if(!const bool.fromEnvironment('ELNOTA_SCREENSHOTS')) return;
     final boundary=key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
@@ -34,6 +41,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
         final db=AppDatabase(NativeDatabase.memory()),key=GlobalKey();
         final dao=AppDao(db),repo=AccountingRepository(dao:AppDao(db));
+        addTearDown(() async {await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();await repo.dao.close();await dao.close();await db.close();Get.reset();});
         final id=await dao.createCustomer(name:'أحمد محمد اسم عميل طويل للاختبار',phone:'01012345678');
         await dao.createAndPostInvoice(customerId:id,totalMinor:80000,isManualAmount:true,discountMinor:5000);
         await dao.addPayment(customerId:id,amountMinor:25000,idempotencyKey:'ui-payment');
@@ -44,7 +52,7 @@ void main() {
         expect(find.byType(Scaffold),findsOneWidget);
         if(width==390 || width==1440) await capture(tester,key,'${section.name}_${width.toInt()}');
         await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();
-        await repo.dao.close();await dao.close();await db.close();Get.reset();
+
       });
     }
   }
@@ -52,6 +60,7 @@ void main() {
     tester.view.physicalSize=const Size(390,900);tester.view.devicePixelRatio=1;
     addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
     final db=AppDatabase(NativeDatabase.memory()),key=GlobalKey();final dao=AppDao(db),repo=AccountingRepository(dao:AppDao(db));
+    addTearDown(() async {await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();if(repo.dao!=dao) await repo.dao.close();await dao.close();await db.close();Get.reset();});
     final customer=await dao.createCustomer(name:'عميل تجريبي');
     final invoice=await dao.createAndPostInvoice(customerId:customer,totalMinor:50000,isManualAmount:true);
     await tester.pumpWidget(RepaintBoundary(key:key,child:GetMaterialApp(locale:const Locale('ar'),theme:AppTheme.light,
@@ -59,17 +68,19 @@ void main() {
     await tester.pumpAndSettle();expect(tester.takeException(),isNull);
     expect(find.text('حفظ صورة'),findsOneWidget);expect(find.text('مشاركة صورة / واتساب'),findsOneWidget);
     expect(find.byType(InvoiceReceipt),findsOneWidget);await capture(tester,key,'invoice_detail_390');
+    await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();Get.reset();
     await tester.pumpWidget(GetMaterialApp(locale:const Locale('ar'),theme:AppTheme.light,
       home:Directionality(textDirection:TextDirection.rtl,child:CustomerDetailView(customerId:customer,repository:repo))));
     await tester.pumpAndSettle();expect(tester.takeException(),isNull);
     expect(find.text('تسجيل دفعة'),findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();
-    await repo.dao.close();await dao.close();await db.close();Get.reset();
+
   });
   testWidgets('Arabic receipt stays white in dark mode and captures valid PNG/PDF/thermal data',(tester) async {
     tester.view.physicalSize=const Size(800,1200);tester.view.devicePixelRatio=1;
     addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
     final db=AppDatabase(NativeDatabase.memory()),key=GlobalKey();final dao=AppDao(db),repo=AccountingRepository(dao:dao);
+    addTearDown(() async {await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();if(repo.dao!=dao) await repo.dao.close();await dao.close();await db.close();Get.reset();});
     final customer=await dao.createCustomer(name:'عميل تجريبي');
     await dao.saveBusinessSettings(businessName:'متجر النوتة',phone:'01012345678',address:'القاهرة');
     final id=await dao.createAndPostInvoice(customerId:customer,totalMinor:15000,isManualAmount:false,
@@ -93,6 +104,6 @@ void main() {
       final thermal=await service.thermal(png,dots:384);
       expect(thermal.take(2),[27,64]);
     });
-    await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();await dao.close();await db.close();
+    await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();
   });
 }

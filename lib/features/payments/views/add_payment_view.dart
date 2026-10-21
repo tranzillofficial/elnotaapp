@@ -54,7 +54,7 @@ class _AddPaymentViewState extends State<AddPaymentView> {
       OutlinedButton.icon(onPressed:busy?null:() async {final chosen=await showDatePicker(context:context,initialDate:date,firstDate:DateTime(2000),lastDate:DateTime(2100));if(chosen!=null&&mounted) setState(()=>date=chosen);},
         icon:const Icon(Icons.calendar_today_outlined,size:18),label:Text(dateText(date))),
       const SizedBox(height:12),TextField(controller:notes,enabled:!busy,maxLines:3,decoration:InputDecoration(labelText:ui('ملاحظات اختيارية','Optional notes'))),
-      if(account!=null && value>0) Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text('${ui('الرصيد بعد الدفعة','Balance after payment')}: ${MoneyUtils.formatMinor(account.balance.outstandingMinor-value)}\n${ui('الرصيد السالب يظهر كرصد مقدم لصالح العميل.','A negative balance is customer credit.')}')),
+      if(account!=null && value>0) Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text('${ui('الرصيد بعد الدفعة','Balance after payment')}: ${MoneyUtils.formatMinor(account.balance.outstandingMinor-value)}\n${ui('الرصيد السالب يظهر كرصيد مقدم لصالح العميل.','A negative balance is customer credit.')}')),
       if(error!=null) Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Text(error!,style:TextStyle(color:Theme.of(context).colorScheme.error))),
       const SizedBox(height:12),FilledButton.icon(onPressed:busy?null:save,icon:busy?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.check,size:18),
         label:Text(ui('حفظ الدفعة','Save payment'))),

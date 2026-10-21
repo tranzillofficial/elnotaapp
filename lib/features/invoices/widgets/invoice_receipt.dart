@@ -16,7 +16,7 @@ class InvoiceReceipt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final narrow=paper!=ReceiptPaper.a4;
-    final style=TextStyle(color:Colors.black,fontSize:paper==ReceiptPaper.mm58?10:12,height:1.45,fontFamily:'');
+    final style=TextStyle(color:Colors.black,fontSize:paper==ReceiptPaper.mm58?10:12,height:1.45,fontFamily:'ElNotaArabic');
     Widget pair(String label,String value,{bool bold=false})=>Padding(padding:const EdgeInsets.symmetric(vertical:3),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Expanded(child:Text(label,style:bold?const TextStyle(fontWeight:FontWeight.w700):null)),const SizedBox(width:8),
       Flexible(child:Text(value,textAlign:TextAlign.end,style:bold?const TextStyle(fontWeight:FontWeight.w700):null)),
@@ -42,7 +42,7 @@ class InvoiceReceipt extends StatelessWidget {
         if(invoice.discountMinor>0) pair('الخصم',MoneyUtils.formatMinor(invoice.discountMinor)),
         pair('صافي الفاتورة',MoneyUtils.formatMinor(invoice.netMinor),bold:true),
         const Divider(color:Colors.black),
-        pair('إجمالي رصيد حساب العميل',MoneyUtils.formatMinor(account.balance.outstandingMinor.abs()),bold:true),
+        pair('رصيد حساب العميل الحالي',MoneyUtils.formatMinor(account.balance.outstandingMinor.abs()),bold:true),
         Text(account.balance.outstandingMinor<0?'رصيد مقدم لصالح العميل':'الدفعات محسوبة على إجمالي حساب العميل',textAlign:TextAlign.center),
         if(invoice.notes?.isNotEmpty==true) ...[const SizedBox(height:8),Text(invoice.notes!)],
         const SizedBox(height:10),const Text('شكرًا لتعاملكم معنا',textAlign:TextAlign.center),
