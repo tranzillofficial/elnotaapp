@@ -24,7 +24,7 @@ class InvoiceExportService {
     } finally { image.dispose(); }
   }
   Future<bool> saveImage(Uint8List bytes,String filename) async {
-    final path=await FilePicker.platform.saveFile(dialogTitle:'حفظ صورة الفاتورة',fileName:filename,
+    final path=await FilePicker.saveFile(dialogTitle:'حفظ صورة الفاتورة',fileName:filename,
       type:FileType.custom,allowedExtensions:['png'],bytes:bytes);
     return path!=null;
   }
