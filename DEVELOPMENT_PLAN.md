@@ -1,6 +1,10 @@
+> Authorized extension 2026-10-22: implement the four accounting screens, receipt preview/image save and sharing, system printing and Android Bluetooth SPP thermal printing, without changing dependency manifests or the live website. See docs/ACCOUNTING_AND_PRINTING.md.
+
 # ElNota — Four-Phase Development Plan
 
-> Planning document; not evidence that any stage is implemented. **Current phase: 1 (proposed; implementation awaits user's explicit approval).** Only user approval changes the active phase.
+> Current authorized work (2026-10-21): web/Flutter data-contract alignment in the Flutter repository only, with additive local migration and isolated preflight. Actual production merging and sync rollout are deferred by the user. See docs/WEB_FLUTTER_ALIGNMENT.md. This supersedes the old phase-1-only gate for this task.
+
+> Historical planning document; not evidence that any stage is implemented. **Current phase: 1 (proposed; implementation awaits user's explicit approval).** Only user approval changes the active phase.
 
 ## Universal working protocol
 1. Read `AGENTS.md`, this plan, the relevant docs, existing source, `pubspec.yaml` and `pubspec.lock` before implementation.

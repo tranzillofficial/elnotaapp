@@ -1,5 +1,7 @@
 # ElNota | Architecture
 
+> Implementation update 2026-10-21: see [WEB_FLUTTER_ALIGNMENT.md](WEB_FLUTTER_ALIGNMENT.md) for the active compatibility contract, local v2 migration, verification results and deferred production integration. The broader design below is not evidence of completed cloud sync.
+
 > Status: Proposed architecture, not an assertion about the existing codebase. Validate against real code before implementation.
 
 ## Goals and scope

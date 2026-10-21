@@ -48,6 +48,7 @@ const Map<String, String> enStrings = {
   'customer_title': 'Customers',
   'customer_add': 'Add customer',
   'customer_name': 'Customer name',
+  'customer_address': 'Address',
   'customer_phone': 'Phone number',
   'customer_notes': 'Notes',
   'customer_balance': 'Balance',

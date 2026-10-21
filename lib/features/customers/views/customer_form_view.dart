@@ -16,6 +16,7 @@ class _CustomerFormViewState extends State<CustomerFormView> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   bool _saving = false;
   String? _editId;
@@ -38,6 +39,7 @@ class _CustomerFormViewState extends State<CustomerFormView> {
       if (c != null && mounted) {
         _nameCtrl.text = c.name;
         _phoneCtrl.text = c.phone ?? '';
+        _addressCtrl.text = c.address;
         _notesCtrl.text = c.notes ?? '';
         setState(() {});
       }
@@ -48,6 +50,7 @@ class _CustomerFormViewState extends State<CustomerFormView> {
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
+    _addressCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -61,6 +64,7 @@ class _CustomerFormViewState extends State<CustomerFormView> {
           id: _editId!,
           name: _nameCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+          address: _addressCtrl.text.trim(),
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         );
         showSuccessSnack('customer_updated'.tr);
@@ -68,6 +72,7 @@ class _CustomerFormViewState extends State<CustomerFormView> {
         await _repo.create(
           name: _nameCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+          address: _addressCtrl.text.trim(),
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         );
         showSuccessSnack('customer_created'.tr);
@@ -114,6 +119,15 @@ class _CustomerFormViewState extends State<CustomerFormView> {
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 16),
+              TextFormField(
+                controller: _addressCtrl,
+                decoration: InputDecoration(
+                  labelText: 'customer_address'.tr,
+                  prefixIcon: const Icon(Icons.location_on_outlined),
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _notesCtrl,
                 decoration: InputDecoration(

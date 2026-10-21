@@ -9,6 +9,7 @@ import '../../../core/utils/app_routes.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../auth/services/auth_service.dart';
 import '../controllers/settings_controller.dart';
+import 'business_settings_card.dart';
 
 /// Settings screen.
 /// Groups: Appearance (theme + language), About.
@@ -23,6 +24,7 @@ class SettingsView extends GetView<SettingsController> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
+          const BusinessSettingsCard(),
           // ── Appearance ─────────────────────────────────────────────────────
           SectionHeader(title: 'settings_appearance'.tr),
           _ThemeSelector(),
@@ -258,9 +260,11 @@ class _SyncSettingsCard extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        pending > 0
-                            ? '$pending قيد المزامنة'
-                            : 'جميع العمليات متزامنة',
+                        sync?.supportsCloudSync != true
+                            ? 'محفوظ على الجهاز'
+                            : pending > 0
+                                ? '$pending قيد المزامنة'
+                                : 'جميع العمليات متزامنة',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: pending > 0 ? Colors.orange[800] : Colors.green,
                           fontWeight: FontWeight.bold,
@@ -270,7 +274,7 @@ class _SyncSettingsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: isSyncing
+                    onPressed: isSyncing || sync?.supportsCloudSync != true
                         ? null
                         : () async {
                             final ok = await sync?.syncNow();
@@ -287,7 +291,9 @@ class _SyncSettingsCard extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.sync_rounded),
-                    label: Text(isSyncing ? 'جارٍ المزامنة…' : 'مزامنة فورية الآن'),
+                    label: Text(sync?.supportsCloudSync != true
+                        ? 'المزامنة بين المنصات قيد التجهيز'
+                        : isSyncing ? 'جارٍ المزامنة…' : 'مزامنة فورية الآن'),
                   ),
                 ],
               );

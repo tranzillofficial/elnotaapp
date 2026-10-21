@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 /// Typography tokens for ElNota.
-/// Primary typeface: Cairo (Arabic-first, clear numerals).
-/// Fallback: system default if Cairo is unavailable.
+/// Primary typeface: bundled Noto Naskh Arabic.
+/// Loaded before startup for offline Arabic UI and receipt rendering.
 abstract class AppTextStyles {
-  static const String _fontFamily = 'Cairo';
+  static const String _fontFamily = 'ElNotaArabic';
 
   // ── Scale (sp) ──────────────────────────────────────────────────────────────
   static const TextStyle display = TextStyle(

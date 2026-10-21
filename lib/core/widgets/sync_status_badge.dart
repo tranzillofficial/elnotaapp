@@ -26,7 +26,10 @@ class SyncStatusBadge extends StatelessWidget {
       String tooltip;
       Color? iconColor;
 
-      if (summary.isSyncing) {
+      if (!sync.supportsCloudSync) {
+        iconWidget = const Icon(Icons.save_outlined);
+        tooltip = 'محفوظ على الجهاز؛ المزامنة بين المنصات لم تُفعّل بعد';
+      } else if (summary.isSyncing) {
         iconWidget = const SizedBox(
           width: 18,
           height: 18,

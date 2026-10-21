@@ -1,3 +1,6 @@
+-- FUTURE PROPOSAL ONLY. Not applied by the Flutter v2 local migration.
+-- Current authorized work is local contract alignment; do not run this on the live website.
+-- Review docs/WEB_FLUTTER_ALIGNMENT.md before preparing a separate staging migration.
 -- =============================================================================
 -- ElNota — Relational Tables Migration
 -- Target: Supabase project fsmoerttftxcuxpswufk (PostgreSQL 17.11)

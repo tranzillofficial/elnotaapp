@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -10,6 +11,7 @@ class CustomerRow {
     required this.workspaceId,
     required this.name,
     this.phone,
+    this.address = '',
     this.notes,
     required this.version,
     required this.createdAt,
@@ -20,6 +22,7 @@ class CustomerRow {
   final String workspaceId;
   final String name;
   final String? phone;
+  final String address;
   final String? notes;
   final int version;
   final DateTime createdAt;
@@ -33,6 +36,8 @@ class InvoiceRow {
     required this.workspaceId,
     required this.customerId,
     this.invoiceNumber,
+    this.method = 'credit',
+    this.entryMode,
     required this.status,
     required this.totalMinor,
     required this.discountMinor,
@@ -49,6 +54,8 @@ class InvoiceRow {
   final String workspaceId;
   final String customerId;
   final String? invoiceNumber;
+  final String method;
+  final String? entryMode;
   final String status;
   final int totalMinor;
   final int discountMinor;
@@ -95,6 +102,7 @@ class PaymentRow {
     required this.customerId,
     required this.amountMinor,
     this.notes,
+    this.legacyInvoiceId,
     required this.paymentDate,
     required this.idempotencyKey,
     required this.version,
@@ -107,6 +115,7 @@ class PaymentRow {
   final String customerId;
   final int amountMinor;
   final String? notes;
+  final String? legacyInvoiceId;
   final DateTime paymentDate;
   final String idempotencyKey;
   final int version;
@@ -156,7 +165,7 @@ class CustomerBalance {
   int get outstandingMinor =>
       totalInvoicedMinor -
       totalDiscountsMinor -
-      totalPaymentsMinor -
+      totalPaymentsMinor +
       totalAdjustmentsMinor;
 }
 
@@ -166,11 +175,13 @@ class CustomerBalance {
 /// Uses [customSelect] / [customInsert] / [customUpdate] to bypass
 /// the missing drift_dev code-gen step.
 class AppDao {
-  AppDao(this._db);
+  AppDao(this._db, {this.workspaceId = 'default'});
+  final String workspaceId;
+  final _changes = StreamController<void>.broadcast();
   final GeneratedDatabase _db;
   final _uuid = const Uuid();
 
-  String get _wsId => 'default'; // Phase 3 will inject real workspace id
+  String get _wsId => workspaceId;
 
   // ──────────────────────────────────────────────────────────────────────────
   // Customers
@@ -312,60 +323,53 @@ class AppDao {
   // Customer CRUD
   // ──────────────────────────────────────────────────────────────────────────
 
-  Stream<List<CustomerRow>> watchCustomers({String? search}) {
-    final q = search != null && search.isNotEmpty
-        ? "WHERE workspace_id = ? AND deleted_at IS NULL AND (LOWER(name) LIKE ? OR phone LIKE ?) ORDER BY name"
-        : "WHERE workspace_id = ? AND deleted_at IS NULL ORDER BY name";
-    final vars = search != null && search.isNotEmpty
-        ? [
-            Variable.withString(_wsId),
-            Variable.withString('%${search.toLowerCase()}%'),
-            Variable.withString('%$search%'),
-          ]
-        : [Variable.withString(_wsId)];
-    return _db
-        .customSelect('SELECT * FROM customers $q', variables: vars)
-        .watch()
-        .map((rows) => rows.map(_mapCustomer).toList());
-  }
+  Stream<List<CustomerRow>> watchCustomers({String? search}) => _observe(() async {
+    final term = search?.trim() ?? '';
+    final rows = await _db.customSelect(
+      'SELECT * FROM customers WHERE workspace_id=? AND deleted_at IS NULL AND (name LIKE ? OR phone LIKE ?) ORDER BY name,id',
+      variables: [Variable.withString(_wsId),Variable.withString('%$term%'),Variable.withString('%$term%')],
+    ).get();
+    return rows.map(_mapCustomer).toList();
+  });
 
-  Stream<CustomerRow?> watchCustomer(String id) {
-    return _db
-        .customSelect(
-          'SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL LIMIT 1',
-          variables: [Variable.withString(id)],
-        )
-        .watch()
-        .map((rows) => rows.isEmpty ? null : _mapCustomer(rows.first));
-  }
+  Stream<CustomerRow?> watchCustomer(String id) => _observe(() async {
+    final rows = await _db.customSelect('SELECT * FROM customers WHERE workspace_id=? AND id=? AND deleted_at IS NULL',
+      variables: [Variable.withString(_wsId),Variable.withString(id)]).get();
+    return rows.isEmpty ? null : _mapCustomer(rows.first);
+  });
 
   Future<String> createCustomer({
     required String name,
     String? phone,
+    String address = '',
     String? notes,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
-    await _db.customInsert(
-      '''INSERT INTO customers
-           (id, workspace_id, name, phone, notes, version, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?)''',
-      variables: [
-        Variable.withString(id),
-        Variable.withString(_wsId),
-        Variable.withString(name),
-        phone != null ? Variable.withString(phone) : const Variable(null),
-        notes != null ? Variable.withString(notes) : const Variable(null),
-        Variable.withInt(now),
-        Variable.withInt(now),
-      ],
-    );
-    await _enqueueOutbox(
-      entityType: 'customer',
-      entityId: id,
-      operationType: 'create',
-      payload: {'id': id, 'workspace_id': _wsId, 'name': name, 'phone': phone, 'notes': notes},
-    );
+    await _db.transaction(() async {
+      await _db.customInsert(
+        '''INSERT INTO customers
+             (id, workspace_id, name, phone, address, notes, version, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)''',
+        variables: [
+          Variable.withString(id),
+          Variable.withString(_wsId),
+          Variable.withString(name),
+          phone != null ? Variable.withString(phone) : const Variable(null),
+          Variable.withString(address),
+          notes != null ? Variable.withString(notes) : const Variable(null),
+          Variable.withInt(now),
+          Variable.withInt(now),
+        ],
+      );
+      await _enqueueOutbox(
+        entityType: 'customer',
+        entityId: id,
+        operationType: 'create',
+        payload: {'id': id, 'workspace_id': _wsId, 'name': name, 'phone': phone, 'address': address, 'notes': notes},
+      );
+    });
+    refresh();
     return id;
   }
 
@@ -373,38 +377,50 @@ class AppDao {
     required String id,
     required String name,
     String? phone,
+    String address = '',
     String? notes,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    await _db.customUpdate(
-      '''UPDATE customers
-         SET name=?, phone=?, notes=?, updated_at=?, version=version+1
-         WHERE id=?''',
-      variables: [
-        Variable.withString(name),
-        phone != null ? Variable.withString(phone) : const Variable(null),
-        notes != null ? Variable.withString(notes) : const Variable(null),
-        Variable.withInt(now),
-        Variable.withString(id),
-      ],
-      updateKind: UpdateKind.update,
-    );
-    await _enqueueOutbox(
-      entityType: 'customer',
-      entityId: id,
-      operationType: 'update',
-      payload: {'id': id, 'name': name, 'phone': phone, 'notes': notes},
-    );
+    await _db.transaction(() async {
+      await _requireCustomer(id);
+      await _db.customUpdate(
+        '''UPDATE customers
+           SET name=?, phone=?, address=?, notes=?, updated_at=?, version=version+1
+           WHERE id=? AND workspace_id=?''',
+        variables: [
+          Variable.withString(name),
+          phone != null ? Variable.withString(phone) : const Variable(null),
+          Variable.withString(address),
+          notes != null ? Variable.withString(notes) : const Variable(null),
+          Variable.withInt(now),
+          Variable.withString(id),
+          Variable.withString(_wsId),
+        ],
+        updateKind: UpdateKind.update,
+      );
+      await _enqueueOutbox(
+        entityType: 'customer',
+        entityId: id,
+        operationType: 'update',
+        payload: {'id': id, 'name': name, 'phone': phone, 'address': address, 'notes': notes},
+      );
+    });
+    refresh();
   }
 
   Future<void> softDeleteCustomer(String id) async {
+    await _requireCustomer(id);
+    final history=await _db.customSelect('SELECT id FROM ledger_entries WHERE workspace_id=? AND customer_id=? LIMIT 1',
+      variables:[Variable.withString(_wsId),Variable.withString(id)]).get();
+    if(history.isNotEmpty) throw StateError('لا يمكن حذف عميل له معاملات مالية');
     final now = DateTime.now().millisecondsSinceEpoch;
     await _db.customUpdate(
-      'UPDATE customers SET deleted_at=?, updated_at=? WHERE id=?',
+      'UPDATE customers SET deleted_at=?, updated_at=? WHERE id=? AND workspace_id=?',
       variables: [
         Variable.withInt(now),
         Variable.withInt(now),
         Variable.withString(id),
+        Variable.withString(_wsId),
       ],
       updateKind: UpdateKind.update,
     );
@@ -414,38 +430,29 @@ class AppDao {
       operationType: 'delete',
       payload: {'id': id},
     );
+    refresh();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
   // Invoices
   // ──────────────────────────────────────────────────────────────────────────
 
-  Stream<List<InvoiceRow>> watchInvoices(String customerId) {
-    return _db
-        .customSelect(
-          '''SELECT * FROM invoices
-             WHERE customer_id = ? AND deleted_at IS NULL
-             ORDER BY invoice_date DESC''',
-          variables: [Variable.withString(customerId)],
-        )
-        .watch()
-        .map((rows) => rows.map(_mapInvoice).toList());
-  }
+  Stream<List<InvoiceRow>> watchInvoices(String customerId) => _observe(() async {
+    final rows = await _db.customSelect('SELECT * FROM invoices WHERE workspace_id=? AND customer_id=? AND deleted_at IS NULL ORDER BY invoice_date DESC,id',
+      variables: [Variable.withString(_wsId),Variable.withString(customerId)]).get();
+    return rows.map(_mapInvoice).toList();
+  });
 
-  Stream<InvoiceRow?> watchInvoice(String id) {
-    return _db
-        .customSelect(
-          'SELECT * FROM invoices WHERE id = ? LIMIT 1',
-          variables: [Variable.withString(id)],
-        )
-        .watch()
-        .map((rows) => rows.isEmpty ? null : _mapInvoice(rows.first));
-  }
+  Stream<InvoiceRow?> watchInvoice(String id) => _observe(() async {
+    final rows = await _db.customSelect('SELECT * FROM invoices WHERE workspace_id=? AND id=? AND deleted_at IS NULL',
+      variables: [Variable.withString(_wsId),Variable.withString(id)]).get();
+    return rows.isEmpty ? null : _mapInvoice(rows.first);
+  });
 
   Future<List<InvoiceItemRow>> getInvoiceItems(String invoiceId) async {
     final rows = await _db.customSelect(
-      'SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY created_at',
-      variables: [Variable.withString(invoiceId)],
+      'SELECT i.* FROM invoice_items i JOIN invoices v ON v.id=i.invoice_id WHERE i.invoice_id=? AND v.workspace_id=? ORDER BY i.created_at,i.id',
+      variables: [Variable.withString(invoiceId),Variable.withString(_wsId)],
     ).get();
     return rows.map(_mapInvoiceItem).toList();
   }
@@ -468,9 +475,9 @@ class AppDao {
     await _db.customInsert(
       '''INSERT INTO invoices
            (id, workspace_id, customer_id, status, total_minor, discount_minor,
-            notes, is_manual_amount, invoice_date, due_date,
+            notes, is_manual_amount, entry_mode, invoice_date, due_date,
             version, created_at, updated_at)
-         VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, 0, ?, ?)''',
+         VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)''',
       variables: [
         Variable.withString(id),
         Variable.withString(_wsId),
@@ -479,6 +486,7 @@ class AppDao {
         Variable.withInt(discountMinor),
         notes != null ? Variable.withString(notes) : const Variable(null),
         Variable.withBool(isManualAmount),
+        Variable.withString(isManualAmount ? 'amount' : 'products'),
         Variable.withInt(date),
         dueDate != null ? Variable.withInt(dueDate.millisecondsSinceEpoch) : const Variable(null),
         Variable.withInt(now),
@@ -511,8 +519,8 @@ class AppDao {
   /// Posts a draft invoice: sets status='posted', writes ledger debit, enqueues outbox.
   Future<void> postInvoice(String invoiceId) async {
     final rows = await _db.customSelect(
-      'SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL LIMIT 1',
-      variables: [Variable.withString(invoiceId)],
+      'SELECT * FROM invoices WHERE id = ? AND workspace_id=? AND deleted_at IS NULL LIMIT 1',
+      variables: [Variable.withString(invoiceId),Variable.withString(_wsId)],
     ).get();
     if (rows.isEmpty) throw StateError('Invoice $invoiceId not found');
     final inv = _mapInvoice(rows.first);
@@ -526,8 +534,8 @@ class AppDao {
     await _db.transaction(() async {
       await _db.customUpdate(
         '''UPDATE invoices SET status='posted', updated_at=?, version=version+1
-           WHERE id=?''',
-        variables: [Variable.withInt(now), Variable.withString(invoiceId)],
+           WHERE id=? AND workspace_id=?''',
+        variables: [Variable.withInt(now), Variable.withString(invoiceId),Variable.withString(_wsId)],
         updateKind: UpdateKind.update,
       );
       await _db.customInsert(
@@ -553,23 +561,18 @@ class AppDao {
         payload: {'id': invoiceId, 'status': 'posted'},
       );
     });
+    refresh();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
   // Payments (customer-level)
   // ──────────────────────────────────────────────────────────────────────────
 
-  Stream<List<PaymentRow>> watchPayments(String customerId) {
-    return _db
-        .customSelect(
-          '''SELECT * FROM payments
-             WHERE customer_id = ? AND deleted_at IS NULL
-             ORDER BY payment_date DESC''',
-          variables: [Variable.withString(customerId)],
-        )
-        .watch()
-        .map((rows) => rows.map(_mapPayment).toList());
-  }
+  Stream<List<PaymentRow>> watchPayments(String customerId) => _observe(() async {
+    final rows = await _db.customSelect('SELECT * FROM payments WHERE workspace_id=? AND customer_id=? AND deleted_at IS NULL ORDER BY payment_date DESC,id',
+      variables: [Variable.withString(_wsId),Variable.withString(customerId)]).get();
+    return rows.map(_mapPayment).toList();
+  });
 
   /// Idempotent: if idempotency_key already exists, silently skips.
   Future<void> addPayment({
@@ -579,19 +582,18 @@ class AppDao {
     String? notes,
     DateTime? paymentDate,
   }) async {
-    // Check idempotency
-    final existing = await _db.customSelect(
-      'SELECT id FROM payments WHERE idempotency_key = ? LIMIT 1',
-      variables: [Variable.withString(idempotencyKey)],
-    ).get();
-    if (existing.isNotEmpty) return; // Already applied
-
     final id = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
     final date = (paymentDate ?? DateTime.now()).millisecondsSinceEpoch;
     final ledgerId = _uuid.v4();
 
+    if(amountMinor<=0) throw ArgumentError('المبلغ يجب أن يكون أكبر من صفر');
     await _db.transaction(() async {
+      await _requireCustomer(customerId);
+      final existing=await _db.customSelect('SELECT id FROM payments WHERE workspace_id=? AND idempotency_key=?',
+        variables:[Variable.withString(_wsId),Variable.withString(idempotencyKey)]).get();
+      if(existing.isNotEmpty) return;
+
       await _db.customInsert(
         '''INSERT INTO payments
              (id, workspace_id, customer_id, amount_minor, notes,
@@ -639,47 +641,27 @@ class AppDao {
         },
       );
     });
+    refresh();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
   // Balance (derived from ledger — never from mutable aggregates)
   // ──────────────────────────────────────────────────────────────────────────
 
-  Stream<CustomerBalance> watchBalance(String customerId) {
-    return _db
-        .customSelect(
-          '''SELECT
-               customer_id,
-               COALESCE(SUM(CASE WHEN event_type='invoice_charge' THEN amount_minor ELSE 0 END),0) AS invoiced,
-               COALESCE(SUM(CASE WHEN event_type='discount' THEN ABS(amount_minor) ELSE 0 END),0) AS discounts,
-               COALESCE(SUM(CASE WHEN event_type='payment_receipt' THEN ABS(amount_minor) ELSE 0 END),0) AS payments,
-               COALESCE(SUM(CASE WHEN event_type IN ('refund','adjustment','reversal')
-                              THEN amount_minor ELSE 0 END),0) AS adjustments
-             FROM ledger_entries
-             WHERE customer_id = ?
-             GROUP BY customer_id''',
-          variables: [Variable.withString(customerId)],
-        )
-        .watch()
-        .map((rows) {
-          if (rows.isEmpty) {
-            return CustomerBalance(
-              customerId: customerId,
-              totalInvoicedMinor: 0,
-              totalDiscountsMinor: 0,
-              totalPaymentsMinor: 0,
-              totalAdjustmentsMinor: 0,
-            );
-          }
-          final r = rows.first;
-          return CustomerBalance(
-            customerId: customerId,
-            totalInvoicedMinor: r.read<int>('invoiced'),
-            totalDiscountsMinor: r.read<int>('discounts'),
-            totalPaymentsMinor: r.read<int>('payments'),
-            totalAdjustmentsMinor: r.read<int>('adjustments'),
-          );
-        });
+  Stream<CustomerBalance> watchBalance(String customerId) => _observe(() => balance(customerId));
+
+  Future<CustomerBalance> balance(String customerId) async {
+    final rows = await _db.customSelect('''SELECT
+      COALESCE(SUM(CASE WHEN event_type='invoice_charge' THEN amount_minor ELSE 0 END),0) AS invoiced,
+      COALESCE(SUM(CASE WHEN event_type='discount' THEN -amount_minor ELSE 0 END),0) AS discounts,
+      COALESCE(SUM(CASE WHEN event_type='payment_receipt' THEN -amount_minor ELSE 0 END),0) AS payments,
+      COALESCE(SUM(CASE WHEN event_type IN ('refund','adjustment','reversal') THEN amount_minor ELSE 0 END),0) AS adjustments
+      FROM ledger_entries WHERE workspace_id=? AND customer_id=?''',
+      variables:[Variable.withString(_wsId),Variable.withString(customerId)]).get();
+    final r=rows.single;
+    return CustomerBalance(customerId:customerId,totalInvoicedMinor:r.read<int>('invoiced'),
+      totalDiscountsMinor:r.read<int>('discounts'),totalPaymentsMinor:r.read<int>('payments'),
+      totalAdjustmentsMinor:r.read<int>('adjustments'));
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -788,16 +770,11 @@ class AppDao {
     }
   }
 
-  Stream<int> watchPendingOutboxCount() {
-    return _db
-        .customSelect(
-          '''SELECT COUNT(*) AS cnt FROM sync_outbox
-             WHERE workspace_id = ? AND status IN ('pending', 'sending')''',
-          variables: [Variable.withString(_wsId)],
-        )
-        .watch()
-        .map((rows) => rows.isEmpty ? 0 : rows.first.read<int>('cnt'));
-  }
+  Stream<int> watchPendingOutboxCount() => _observe(() async {
+    final rows=await _db.customSelect("SELECT COUNT(*) AS cnt FROM sync_outbox WHERE workspace_id=? AND status IN ('pending','sending')",
+      variables:[Variable.withString(_wsId)]).get();
+    return rows.single.read<int>('cnt');
+  });
 
   Future<Map<String, dynamic>?> getSyncState() async {
     final rows = await _db.customSelect(
@@ -840,6 +817,7 @@ class AppDao {
         workspaceId: r.read<String>('workspace_id'),
         name: r.read<String>('name'),
         phone: r.readNullable<String>('phone'),
+        address: r.readNullable<String>('address') ?? '',
         notes: r.readNullable<String>('notes'),
         version: r.read<int>('version'),
         createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
@@ -854,6 +832,8 @@ class AppDao {
         workspaceId: r.read<String>('workspace_id'),
         customerId: r.read<String>('customer_id'),
         invoiceNumber: r.readNullable<String>('invoice_number'),
+        method: r.readNullable<String>('method') ?? 'credit',
+        entryMode: r.readNullable<String>('entry_mode'),
         status: r.read<String>('status'),
         totalMinor: r.read<int>('total_minor'),
         discountMinor: r.read<int>('discount_minor'),
@@ -888,6 +868,7 @@ class AppDao {
         customerId: r.read<String>('customer_id'),
         amountMinor: r.read<int>('amount_minor'),
         notes: r.readNullable<String>('notes'),
+        legacyInvoiceId: r.readNullable<String>('legacy_invoice_id'),
         paymentDate: DateTime.fromMillisecondsSinceEpoch(r.read<int>('payment_date')),
         idempotencyKey: r.read<String>('idempotency_key'),
         version: r.read<int>('version'),
@@ -898,24 +879,86 @@ class AppDao {
             : null,
       );
 
-  String _encodePayload(Map<String, dynamic> m) {
-    final sb = StringBuffer('{');
-    var first = true;
-    m.forEach((k, v) {
-      if (!first) sb.write(',');
-      first = false;
-      sb.write('"$k":');
-      if (v == null) {
-        sb.write('null');
-      } else if (v is String) {
-        sb.write('"${v.replaceAll('"', '\\"')}"');
-      } else {
-        sb.write(v);
-      }
+  Future<void> close()=>_changes.close();
+
+  void refresh() { if (!_changes.isClosed) _changes.add(null); }
+
+  Stream<T> _observe<T>(Future<T> Function() read) => Stream<T>.multi((sink) {
+    var cancelled=false, running=false, again=false;
+    Future<void> load() async {
+      if (running) { again=true; return; }
+      running=true;
+      do {
+        again=false;
+        try { final value=await read(); if (!cancelled) sink.add(value); }
+        catch(e,st) { if (!cancelled) sink.addError(e,st); }
+      } while(again && !cancelled);
+      running=false;
+    }
+    final sub=_changes.stream.listen((_)=>load());
+    sink.onCancel=() { cancelled=true; sub.cancel(); };
+    load();
+  });
+
+  Stream<Map<String,List<Map<String,dynamic>>>> watchWorkspaceData() => _observe(readWorkspaceData);
+
+  Future<Map<String,List<Map<String,dynamic>>>> readWorkspaceData() => _db.transaction(() async {
+    final result=<String,List<Map<String,dynamic>>>{};
+    for(final table in ['customers','invoices','payments','ledger_entries','business_settings']) {
+      final rows=await _db.customSelect('SELECT * FROM $table WHERE workspace_id=?',
+        variables:[Variable.withString(_wsId)]).get();
+      result[table]=rows.map((r)=>r.data).toList();
+    }
+    final items=await _db.customSelect('SELECT i.* FROM invoice_items i JOIN invoices v ON v.id=i.invoice_id WHERE v.workspace_id=?',
+      variables:[Variable.withString(_wsId)]).get();
+    result['invoice_items']=items.map((r)=>r.data).toList();
+    return result;
+  });
+
+  Future<void> saveBusinessSettings({required String businessName,required String phone,required String address}) async {
+    await _db.transaction(() async {
+      await _db.customStatement('''INSERT INTO business_settings(workspace_id,business_name,phone,address,currency,updated_at)
+        VALUES (?,?,?,?,'جنيه',?) ON CONFLICT(workspace_id) DO UPDATE SET
+        business_name=excluded.business_name,phone=excluded.phone,address=excluded.address,updated_at=excluded.updated_at''',
+        [_wsId,businessName.trim(),phone.trim(),address.trim(),DateTime.now().millisecondsSinceEpoch]);
+      await _enqueueOutbox(entityType:'settings',entityId:_wsId,operationType:'update',payload:{'businessName':businessName.trim(),'phone':phone.trim(),'address':address.trim()});
     });
-    sb.write('}');
-    return sb.toString();
+    refresh();
   }
+
+  Future<String> createAndPostInvoice({required String customerId,required int totalMinor,required bool isManualAmount,
+    List<Map<String,dynamic>> items=const [],int discountMinor=0,String? notes,DateTime? invoiceDate,DateTime? dueDate}) async {
+    final id=await _db.transaction(() async {
+      await _requireCustomer(customerId);
+      if (totalMinor<=0 || totalMinor>9007199254740991 || discountMinor<0 || discountMinor>totalMinor) throw ArgumentError('المبلغ أو الخصم غير صحيح');
+      if (!isManualAmount) {
+        var sum=0;
+        if(items.isEmpty) throw ArgumentError('أضف أصناف الفاتورة');
+        for(final i in items) {
+          final q=i['quantity'] as int, price=i['unit_price_minor'] as int, discount=(i['discount_minor'] as int?)??0;
+          if(q<=0 || price<0 || discount<0 || discount>q*price || (i['description'] as String).trim().isEmpty) throw ArgumentError('بيانات الصنف غير صحيحة');
+          sum+=q*price-discount;
+        }
+        if(sum!=totalMinor) throw ArgumentError('إجمالي الأصناف غير متطابق');
+      }
+      final created=await createInvoice(customerId:customerId,totalMinor:totalMinor,isManualAmount:isManualAmount,items:items,
+        discountMinor:discountMinor,notes:notes,invoiceDate:invoiceDate,dueDate:dueDate);
+      await _db.customStatement('UPDATE invoices SET invoice_number=? WHERE id=? AND workspace_id=?',
+        ['INV-${created.substring(0,8).toUpperCase()}',created,_wsId]);
+      await postInvoice(created);
+      return created;
+    });
+    refresh();
+    return id;
+  }
+
+  Future<void> _requireCustomer(String id) async {
+    final rows=await _db.customSelect('SELECT id FROM customers WHERE id=? AND workspace_id=? AND deleted_at IS NULL',
+      variables:[Variable.withString(id),Variable.withString(_wsId)]).get();
+    if(rows.isEmpty) throw StateError('العميل غير موجود');
+  }
+
+  String _encodePayload(Map<String, dynamic> m) => jsonEncode(m);
 }
 
 // ─── DatabaseService ─────────────────────────────────────────────────────────

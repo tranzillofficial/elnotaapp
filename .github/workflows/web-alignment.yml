@@ -1,0 +1,81 @@
+name: Flutter accounting and printing checks
+on:
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: elnota-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python scripts/verify_web_alignment.py
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          # Match the project creation revision in .metadata.
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+      # Resolve in a disposable copy, leaving the checked-in manifests frozen.
+      - name: Prepare disposable validation copy
+        run: |
+          mkdir -p "$RUNNER_TEMP/elnota-validation"
+          cp -a . "$RUNNER_TEMP/elnota-validation/"
+      - name: Resolve the committed dependency graph
+        working-directory: ${{ runner.temp }}/elnota-validation
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze and test
+        working-directory: ${{ runner.temp }}/elnota-validation
+        run: |
+          flutter analyze --no-pub
+          flutter test --no-pub --dart-define=ELNOTA_SCREENSHOTS=true
+      - name: Verify dependency manifests remain unchanged
+        run: git diff --exit-code -- pubspec.yaml pubspec.lock
+      - name: Upload UI previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accounting-ui-previews
+          path: ${{ runner.temp }}/elnota-validation/build/ui_previews/*.png
+          if-no-files-found: ignore
+      - name: Build Android debug app
+        working-directory: ${{ runner.temp }}/elnota-validation
+        run: flutter build apk --debug --no-pub
+      - name: Upload Android debug app
+        uses: actions/upload-artifact@v4
+        with:
+          name: elnota-android-debug
+          path: ${{ runner.temp }}/elnota-validation/build/app/outputs/flutter-apk/app-debug.apk
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+      - name: Prepare disposable validation copy
+        shell: pwsh
+        run: Copy-Item -Path . -Destination "$env:RUNNER_TEMP/elnota-validation" -Recurse -Force
+      - name: Resolve committed dependencies
+        working-directory: ${{ runner.temp }}/elnota-validation
+        run: flutter pub get --enforce-lockfile
+      - name: Build Windows debug app
+        working-directory: ${{ runner.temp }}/elnota-validation
+        run: flutter build windows --debug --no-pub
+      - name: Upload Windows debug app
+        uses: actions/upload-artifact@v4
+        with:
+          name: elnota-windows-debug
+          path: ${{ runner.temp }}/elnota-validation/build/windows/x64/runner/Debug/

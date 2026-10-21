@@ -29,6 +29,7 @@ class Customers extends Table {
   TextColumn get workspaceId => text()();
   TextColumn get name => text()();
   TextColumn get phone => text().nullable()();
+  TextColumn get address => text().withDefault(const Constant(''))();
   TextColumn get notes => text().nullable()();
   IntColumn get version => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime()();
@@ -46,6 +47,14 @@ class Products extends Table {
   TextColumn get name => text()();
   /// Default unit price in minor units.
   IntColumn get unitPriceMinor => integer().withDefault(const Constant(0))();
+  TextColumn get barcode => text().withDefault(const Constant(''))();
+  TextColumn get image => text().nullable()();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  TextColumn get category => text().nullable()();
+  IntColumn get boxQuantity => integer().nullable()();
+  TextColumn get itemNumber => text().nullable()();
+  BoolColumn get priceMissing => boolean().withDefault(const Constant(false))();
+  TextColumn get sourceJson => text().nullable()();
   TextColumn get notes => text().nullable()();
   IntColumn get version => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime()();
@@ -62,6 +71,9 @@ class Invoices extends Table {
   TextColumn get workspaceId => text()();
   TextColumn get customerId => text()();
   TextColumn get invoiceNumber => text().nullable()();
+  TextColumn get method => text().withDefault(const Constant('credit'))();
+  TextColumn get entryMode => text().nullable()();
+  TextColumn get sourceJson => text().nullable()();
   /// 'draft' | 'posted' | 'paid' | 'partial' | 'overdue' | 'cancelled'
   TextColumn get status => text().withDefault(const Constant('draft'))();
   /// Total charged amount (before discount) in minor units.
@@ -104,6 +116,10 @@ class Payments extends Table {
   TextColumn get id => text()();
   TextColumn get workspaceId => text()();
   TextColumn get customerId => text()();
+  /// Only for receipts historically embedded inside a website invoice.
+  /// New receipts remain customer-level, without implicit invoice allocation.
+  TextColumn get legacyInvoiceId => text().nullable()();
+  TextColumn get sourceJson => text().nullable()();
   /// Customer-level receipt. Not bound to a specific invoice by default.
   IntColumn get amountMinor => integer()();
   TextColumn get notes => text().nullable()();

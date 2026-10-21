@@ -107,3 +107,13 @@
   - **iOS**: أيقونات App Store وiPhone وiPad مع إزالة قناة الشفافية (`remove_alpha_ios: true`) لتتوافق مع متطلبات متجر آبل.
   - **Web**: تم توليد `favicon.png` وأيقونات `manifest.json` (`Icon-192.png`, `Icon-512.png`, `Icon-maskable-192.png`, `Icon-maskable-512.png`).
   - **Windows**: تم توليد أيقونة نظام ويندوز [app_icon.ico](file:///c:/Users/Stark/Desktop/latest/elnota/windows/runner/resources/app_icon.ico) الخاصة بملف التشغيل وشريط المهام.
+
+
+## 2026-10-21: Flutter/web schema alignment (pre-integration)
+
+Flutter repository only. Added exact web table/RPC names and lossless document DTOs, local v2 additive schema, customer address support, and isolated import preview/staging. Existing financial tables/amounts are preserved. Removed fake sync acknowledgements against absent endpoints; no production integration is enabled. See docs/WEB_FLUTTER_ALIGNMENT.md and docs/DEPENDENCIES_ALIGNMENT.md. Four offline Python contract/SQLite tests passed. Dart tests, analyzer, device tests and builds were not run because Flutter/Dart SDK is unavailable here. Dependency manifests unchanged. No website or live database mutation.
+
+
+## 2026-10-22: Accounting screens and receipt printing
+
+Implemented local overview/customers/invoices/payments, customer-wide receipts, consistent reactive projections, transactional invoice posting, receipt PNG sharing/saving and system/Android Bluetooth printing. No website/production database changes or new dependencies. Verification and platform limitations are documented in docs/ACCOUNTING_AND_PRINTING.md; final CI results are recorded in the PR.

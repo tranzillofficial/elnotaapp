@@ -21,17 +21,19 @@ class CustomerRepository {
   Future<String> create({
     required String name,
     String? phone,
+    String address = '',
     String? notes,
   }) =>
-      _dao.createCustomer(name: name, phone: phone, notes: notes);
+      _dao.createCustomer(name: name, phone: phone, address: address, notes: notes);
 
   Future<void> update({
     required String id,
     required String name,
     String? phone,
+    String address = '',
     String? notes,
   }) =>
-      _dao.updateCustomer(id: id, name: name, phone: phone, notes: notes);
+      _dao.updateCustomer(id: id, name: name, phone: phone, address: address, notes: notes);
 
   Future<void> delete(String id) => _dao.softDeleteCustomer(id);
 }

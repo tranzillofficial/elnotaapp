@@ -9,6 +9,7 @@ import 'core/services/theme_service.dart';
 import 'core/services/locale_service.dart';
 import 'core/utils/l10n/app_translations.dart';
 import 'core/utils/app_constants.dart';
+import 'core/services/app_fonts.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,8 @@ Future<void> main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+
+  await loadAppFonts();
 
   // Boot order: storage → services → app.
   await initServices();

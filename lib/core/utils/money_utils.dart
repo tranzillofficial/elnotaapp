@@ -39,18 +39,20 @@ class MoneyUtils {
   /// Parse a string like '1500.25' or '1500' into minor units.
   /// Returns null if input is invalid.
   static int? parseToMinor(String input) {
-    final clean = input.trim().replaceAll(',', '');
-    if (clean.isEmpty) return null;
-    final parts = clean.split('.');
-    if (parts.length > 2) return null;
-    final whole = int.tryParse(parts[0]);
-    if (whole == null) return null;
-    int frac = 0;
-    if (parts.length == 2) {
-      final fracStr = parts[1].length > 2 ? parts[1].substring(0, 2) : parts[1].padRight(2, '0');
-      frac = int.tryParse(fracStr) ?? 0;
-    }
-    return whole * _factor + frac;
+    var normalized=input.trim().replaceAll('٫','.').replaceAll('٬',',');
+    const digits='٠١٢٣٤٥٦٧٨٩';
+    const eastern='۰۱۲۳۴۵۶۷۸۹';
+    for(var i=0;i<10;i++) { normalized=normalized.replaceAll(digits[i],'$i').replaceAll(eastern[i],'$i'); }
+    if(!RegExp(r'^-?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]{1,2})?$').hasMatch(normalized)) return null;
+    final clean=normalized.replaceAll(',','');
+    final negative=clean.startsWith('-');
+    final parts=(negative?clean.substring(1):clean).split('.');
+    final whole=int.tryParse(parts[0]);
+    if(whole==null || whole>90071992547409) return null;
+    final fraction=parts.length==2?int.parse(parts[1].padRight(2,'0')):0;
+    final result=whole*_factor+fraction;
+    if(result>9007199254740991) return null;
+    return negative?-result:result;
   }
 
   static String _addThousands(int n) {

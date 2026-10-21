@@ -1,121 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/add_payment_controller.dart';
-import '../repositories/payment_repository.dart';
+import 'package:uuid/uuid.dart';
+import '../../../core/utils/money_utils.dart';
+import '../../../core/utils/ui_text.dart';
+import '../../../core/widgets/app_widgets.dart';
+import '../../accounting/models/accounting_snapshot.dart';
+import '../../accounting/repositories/accounting_repository.dart';
+import '../../accounting/views/accounting_pages.dart';
 
 class AddPaymentView extends StatefulWidget {
-  const AddPaymentView({super.key});
-
+  const AddPaymentView({super.key,this.repository,this.initialCustomerId});
+  final AccountingRepository? repository;
+  final String? initialCustomerId;
   @override
-  State<AddPaymentView> createState() => _AddPaymentViewState();
+  State<AddPaymentView> createState()=>_AddPaymentViewState();
 }
-
 class _AddPaymentViewState extends State<AddPaymentView> {
-  late final AddPaymentController ctrl;
-  late final String customerId;
-
+  late final repo=widget.repository??AccountingRepository();
+  late final stream=repo.watch();
+  final amount=TextEditingController(),notes=TextEditingController();
+  final operationId=const Uuid().v4();
+  String? customerId;
+  DateTime date=DateUtils.dateOnly(DateTime.now());
+  bool busy=false;
+  String? error;
   @override
-  void initState() {
-    super.initState();
-    final args = Get.arguments as Map<String, dynamic>?;
-    customerId = args?['customer_id'] as String? ?? '';
-    if (!Get.isRegistered<AddPaymentController>()) {
-      if (!Get.isRegistered<PaymentRepository>()) {
-        Get.lazyPut<PaymentRepository>(() => PaymentRepository());
-      }
-      Get.lazyPut<AddPaymentController>(
-        () => AddPaymentController(repo: Get.find<PaymentRepository>()),
-      );
-    }
-    ctrl = Get.find<AddPaymentController>();
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: ctrl.paymentDate.value,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-    );
-    if (picked != null) {
-      ctrl.paymentDate.value = picked;
-    }
-  }
-
+  void initState() { super.initState(); customerId=widget.initialCustomerId??((Get.arguments as Map<String,dynamic>?)?['customer_id'] as String?); }
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('payment_add'.tr),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: ctrl.amountCtrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              decoration: InputDecoration(
-                labelText: 'payment_amount'.tr,
-                hintText: '0.00',
-                suffixText: 'EGP',
-                prefixIcon: const Icon(Icons.attach_money),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Obx(() {
-              final d = ctrl.paymentDate.value;
-              final formatted =
-                  '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-              return InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(12),
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'payment_date'.tr,
-                    prefixIcon: const Icon(Icons.calendar_today_outlined),
-                  ),
-                  child: Text(formatted, style: theme.textTheme.bodyLarge),
-                ),
-              );
-            }),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl.notesCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'payment_notes'.tr,
-                prefixIcon: const Icon(Icons.notes),
-              ),
-            ),
-            const SizedBox(height: 28),
-            Obx(() => ElevatedButton(
-                  onPressed: ctrl.isSaving.value
-                      ? null
-                      : () async {
-                          final ok = await ctrl.submit(customerId);
-                          if (ok) {
-                            Get.back(result: true);
-                          }
-                        },
-                  child: ctrl.isSaving.value
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text('action_confirm'.tr),
-                )),
-          ],
-        ),
-      ),
-    );
+  void dispose() { amount.dispose();notes.dispose();super.dispose(); }
+  Future<void> save() async {
+    if(busy) return;
+    final value=MoneyUtils.parseToMinor(amount.text);
+    if(customerId==null || value==null || value<=0) { setState(()=>error=ui('اختار عميل واكتب مبلغًا صحيحًا بخانتين عشريتين كحد أقصى','Select a customer and enter a positive amount with up to two decimals'));return; }
+    setState(() {busy=true;error=null;});
+    try {
+      await repo.dao.addPayment(customerId:customerId!,amountMinor:value,idempotencyKey:operationId,notes:notes.text.trim(),paymentDate:date);
+      if(mounted) { Get.back(result:true);showSuccessSnack(ui('تم تسجيل الدفعة على حساب العميل','Payment saved to the customer account')); }
+    } catch(e) { if(mounted) setState(()=>error=e.toString()); }
+    finally { if(mounted) setState(()=>busy=false); }
   }
+  @override
+  Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text(ui('تسجيل دفعة','Add payment'))),body:StreamBuilder<AccountingSnapshot>(stream:stream,builder:(context,snapshot) {
+    if(snapshot.hasError) return AppErrorWidget(message:ui('تعذر تحميل الحساب','Unable to load accounts'),onRetry:repo.refresh);
+    final data=snapshot.data;
+    if(data==null) return const AppLoadingWidget();
+    final account=customerId==null?null:data.customer(customerId!);
+    final value=MoneyUtils.parseToMinor(amount.text)??0;
+    return Align(alignment:Alignment.topCenter,child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:560),child:ListView(padding:const EdgeInsets.all(16),children:[
+      OutlinedButton.icon(onPressed:busy?null:() async { final selected=await chooseCustomer(context,data);if(selected!=null&&mounted) setState(()=>customerId=selected); },
+        icon:const Icon(Icons.person_outline),label:Text(account?.customer.name??ui('اختيار العميل','Choose customer'))),
+      if(account!=null) Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Text('${ui('رصيد الحساب الحالي','Current account balance')}: ${MoneyUtils.formatMinor(account.balance.outstandingMinor)}')),
+      TextField(controller:amount,enabled:!busy,autofocus:account!=null,keyboardType:const TextInputType.numberWithOptions(decimal:true),
+        onChanged:(_)=>setState((){}),decoration:InputDecoration(labelText:ui('مبلغ الدفعة','Payment amount'),suffixText:ui('ج.م','EGP'))),
+      const SizedBox(height:12),
+      OutlinedButton.icon(onPressed:busy?null:() async {final chosen=await showDatePicker(context:context,initialDate:date,firstDate:DateTime(2000),lastDate:DateTime(2100));if(chosen!=null&&mounted) setState(()=>date=chosen);},
+        icon:const Icon(Icons.calendar_today_outlined,size:18),label:Text(dateText(date))),
+      const SizedBox(height:12),TextField(controller:notes,enabled:!busy,maxLines:3,decoration:InputDecoration(labelText:ui('ملاحظات اختيارية','Optional notes'))),
+      if(account!=null && value>0) Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text('${ui('الرصيد بعد الدفعة','Balance after payment')}: ${MoneyUtils.formatMinor(account.balance.outstandingMinor-value)}\n${ui('الرصيد السالب يظهر كرصيد مقدم لصالح العميل.','A negative balance is customer credit.')}')),
+      if(error!=null) Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Text(error!,style:TextStyle(color:Theme.of(context).colorScheme.error))),
+      const SizedBox(height:12),FilledButton.icon(onPressed:busy?null:save,icon:busy?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.check,size:18),
+        label:Text(ui('حفظ الدفعة','Save payment'))),
+    ])));
+  }));
 }

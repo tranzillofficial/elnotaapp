@@ -10,6 +10,9 @@ class InvoiceModel {
     required this.totalMinor,
     required this.discountMinor,
     this.notes,
+    this.number,
+    this.method = 'credit',
+    this.entryMode,
     required this.isManualAmount,
     required this.invoiceDate,
     this.dueDate,
@@ -21,6 +24,9 @@ class InvoiceModel {
   final int totalMinor;
   final int discountMinor;
   final String? notes;
+  final String? number;
+  final String method;
+  final String? entryMode;
   final bool isManualAmount;
   final DateTime invoiceDate;
   final DateTime? dueDate;
@@ -40,6 +46,9 @@ class InvoiceModel {
         totalMinor: r.totalMinor,
         discountMinor: r.discountMinor,
         notes: r.notes,
+        number: r.invoiceNumber,
+        method: r.method,
+        entryMode: r.entryMode,
         isManualAmount: r.isManualAmount,
         invoiceDate: r.invoiceDate,
         dueDate: r.dueDate,
