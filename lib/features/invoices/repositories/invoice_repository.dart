@@ -30,17 +30,7 @@ class InvoiceRepository {
     DateTime? invoiceDate,
     DateTime? dueDate,
   }) async {
-    final id = await _dao.createInvoice(
-      customerId: customerId,
-      totalMinor: totalMinor,
-      isManualAmount: isManualAmount,
-      items: items,
-      discountMinor: discountMinor,
-      notes: notes,
-      invoiceDate: invoiceDate,
-      dueDate: dueDate,
-    );
-    await _dao.postInvoice(id);
-    return id;
+    return _dao.createAndPostInvoice(customerId:customerId,totalMinor:totalMinor,isManualAmount:isManualAmount,
+      items:items,discountMinor:discountMinor,notes:notes,invoiceDate:invoiceDate,dueDate:dueDate);
   }
 }

@@ -69,6 +69,7 @@ class DatabaseService extends GetxService {
 
   @override
   void onClose() {
+    dao.close();
     db.close();
     super.onClose();
   }

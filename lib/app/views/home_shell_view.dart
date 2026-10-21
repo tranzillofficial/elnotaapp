@@ -4,6 +4,7 @@ import '../../core/utils/app_routes.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../../features/customers/views/customers_list_view.dart';
 import '../../features/settings/views/settings_view.dart';
+import '../../features/accounting/views/accounting_pages.dart';
 
 /// Navigation destination data model.
 class _NavDestination {
@@ -72,14 +73,18 @@ class _HomeShellViewState extends State<HomeShellView> {
 
   Widget _buildBody() {
     switch (_selectedIndex) {
+      case 0:
+        return const AccountingPage(section:AccountingSection.overview);
+      case 2:
+        return const AccountingPage(section:AccountingSection.invoices);
+      case 3:
+        return const AccountingPage(section:AccountingSection.payments);
       case 1:
         return const CustomersListView();
       case 4:
         return const SettingsView();
       default:
-        return _PlaceholderBody(
-          destination: _destinations[_selectedIndex],
-        );
+        return const AccountingPage(section:AccountingSection.overview);
     }
   }
 
@@ -205,52 +210,6 @@ class _RailShell extends StatelessWidget {
           // ── Content area ──────────────────────────────────────────────────
           Expanded(child: body),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Phase-1 placeholder body ─────────────────────────────────────────────────
-
-class _PlaceholderBody extends StatelessWidget {
-  const _PlaceholderBody({required this.destination});
-  final _NavDestination destination;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(destination.label.tr),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'nav_settings'.tr,
-            onPressed: () => Get.toNamed(AppRoutes.settings),
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              destination.selectedIcon,
-              size: 64,
-              color: theme.colorScheme.primary.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              destination.label.tr,
-              style: theme.textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Phase 2 — coming next',
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
       ),
     );
   }

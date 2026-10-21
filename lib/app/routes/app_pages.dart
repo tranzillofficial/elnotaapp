@@ -14,6 +14,7 @@ import '../../features/payments/views/add_payment_view.dart';
 import '../../features/settings/bindings/settings_binding.dart';
 import '../../features/settings/views/settings_view.dart';
 import '../views/home_shell_view.dart';
+import '../../features/accounting/views/accounting_pages.dart';
 import '../views/splash_view.dart';
 
 /// Central route table for [GetMaterialApp].
@@ -69,6 +70,9 @@ class AppPages {
       page: () => const InvoiceDetailView(),
       binding: InvoicesBinding(),
     ),
+
+    GetPage(name:AppRoutes.invoices,page:()=>const AccountingPage(section:AccountingSection.invoices)),
+    GetPage(name:AppRoutes.payments,page:()=>const AccountingPage(section:AccountingSection.payments)),
 
     // ── Auth ────────────────────────────────────────────────────────────
     GetPage(

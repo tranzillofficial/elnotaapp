@@ -9,6 +9,7 @@ import '../../../core/utils/app_routes.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../auth/services/auth_service.dart';
 import '../controllers/settings_controller.dart';
+import 'business_settings_card.dart';
 
 /// Settings screen.
 /// Groups: Appearance (theme + language), About.
@@ -23,6 +24,7 @@ class SettingsView extends GetView<SettingsController> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
+          const BusinessSettingsCard(),
           // ── Appearance ─────────────────────────────────────────────────────
           SectionHeader(title: 'settings_appearance'.tr),
           _ThemeSelector(),
