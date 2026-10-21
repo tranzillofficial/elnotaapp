@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elnota/core/database/app_database.dart';
@@ -76,7 +76,7 @@ void main() {
 
   test('duplicate IDs, orphan references and duplicate receipt IDs are rejected', () {
     final duplicate = fixture();
-    duplicate['customers'].add({...duplicate['customers'][0]});
+    duplicate['customers'].add(<String, dynamic>{...duplicate['customers'][0]});
     expect(() => WebImportPreview.inspect(duplicate), throwsFormatException);
     final orphan = fixture();
     orphan['customerPayments'][0]['customerId'] = 'other';

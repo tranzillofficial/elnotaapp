@@ -72,7 +72,9 @@ class WebLedgerDocument {
       if (row['dueDate'] != '') date(row['dueDate']);
       for (final line in row['lines'] as List) {
         if (line is! Map || line['name'] is! String || line['productId'] is! String ||
-            !_nonnegative(line['price'])) throw const FormatException('صنف فاتورة غير صالح');
+            !_nonnegative(line['price'])) {
+          throw const FormatException('صنف فاتورة غير صالح');
+        }
         lineMinor(line);
       }
       for (final p in row['payments'] as List) { payment(p); }
