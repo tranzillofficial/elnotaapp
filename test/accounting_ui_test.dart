@@ -24,6 +24,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     await loadAppFonts();
+    await (FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     await (FontLoader('Manrope')..addFont(rootBundle.load('assets/fonts/Manrope/static/Manrope-Regular.ttf'))).load();
   });
   Future<void> capture(WidgetTester tester,GlobalKey key,String name) async {
@@ -48,7 +49,7 @@ void main() {
         final id=await dao.createCustomer(name:'أحمد محمد اسم عميل طويل للاختبار',phone:'01012345678');
         await dao.createAndPostInvoice(customerId:id,totalMinor:80000,isManualAmount:true,discountMinor:5000);
         await dao.addPayment(customerId:id,amountMinor:25000,idempotencyKey:'ui-payment');
-        await tester.pumpWidget(RepaintBoundary(key:key,child:GetMaterialApp(locale:const Locale('ar'),theme:AppTheme.light,
+        await tester.pumpWidget(RepaintBoundary(key:key,child:GetMaterialApp(debugShowCheckedModeBanner:false,locale:const Locale('ar'),theme:AppTheme.light,
           home:Directionality(textDirection:TextDirection.rtl,child:AccountingPage(section:section,repository:repo)))));
         await tester.pumpAndSettle();
         expect(tester.takeException(),isNull);
@@ -66,13 +67,13 @@ void main() {
     addTearDown(() async {await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();if(repo.dao!=dao) await repo.dao.close();await dao.close();await db.close();Get.reset();});
     final customer=await dao.createCustomer(name:'عميل تجريبي');
     final invoice=await dao.createAndPostInvoice(customerId:customer,totalMinor:50000,isManualAmount:true);
-    await tester.pumpWidget(RepaintBoundary(key:key,child:GetMaterialApp(locale:const Locale('ar'),theme:AppTheme.light,
+    await tester.pumpWidget(RepaintBoundary(key:key,child:GetMaterialApp(debugShowCheckedModeBanner:false,locale:const Locale('ar'),theme:AppTheme.light,
       home:Directionality(textDirection:TextDirection.rtl,child:InvoiceDetailView(invoiceId:invoice,repository:repo)))));
     await tester.pumpAndSettle();expect(tester.takeException(),isNull);
     expect(find.text('حفظ صورة'),findsOneWidget);expect(find.text('مشاركة صورة / واتساب'),findsOneWidget);
     expect(find.byType(InvoiceReceipt),findsOneWidget);await capture(tester,key,'invoice_detail_390');
     await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();Get.reset();
-    await tester.pumpWidget(GetMaterialApp(locale:const Locale('ar'),theme:AppTheme.light,
+    await tester.pumpWidget(GetMaterialApp(debugShowCheckedModeBanner:false,locale:const Locale('ar'),theme:AppTheme.light,
       home:Directionality(textDirection:TextDirection.rtl,child:CustomerDetailView(customerId:customer,repository:repo))));
     await tester.pumpAndSettle();expect(tester.takeException(),isNull);
     expect(find.text('تسجيل دفعة'),findsOneWidget);
@@ -117,7 +118,7 @@ void main() {
     final shared=AccountingRepository(dao:dao);
     addTearDown(() async {await tester.pumpWidget(const SizedBox.shrink());await tester.pumpAndSettle();await repo.dao.close();await dao.close();await db.close();Get.reset();});
     final customer=await dao.createCustomer(name:'عميل النموذج');
-    await tester.pumpWidget(GetMaterialApp(locale:const Locale('ar'),theme:AppTheme.light,
+    await tester.pumpWidget(GetMaterialApp(debugShowCheckedModeBanner:false,locale:const Locale('ar'),theme:AppTheme.light,
       home:Directionality(textDirection:TextDirection.rtl,child:InvoiceFormView(repository:shared,initialCustomerId:customer)),
       getPages:[GetPage(name:AppRoutes.invoiceDetail,page:()=>Directionality(textDirection:TextDirection.rtl,child:InvoiceDetailView(repository:shared))),
         GetPage(name:AppRoutes.paymentCreate,page:()=>Directionality(textDirection:TextDirection.rtl,child:AddPaymentView(repository:shared,initialCustomerId:customer)))],
