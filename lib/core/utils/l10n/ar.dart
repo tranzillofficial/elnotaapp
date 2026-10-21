@@ -49,6 +49,7 @@ const Map<String, String> arStrings = {
   'customer_title': 'العملاء',
   'customer_add': 'إضافة عميل',
   'customer_name': 'اسم العميل',
+  'customer_address': 'العنوان',
   'customer_phone': 'رقم الهاتف',
   'customer_notes': 'ملاحظات',
   'customer_balance': 'الرصيد',

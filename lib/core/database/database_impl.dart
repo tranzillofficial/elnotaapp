@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -10,6 +11,7 @@ class CustomerRow {
     required this.workspaceId,
     required this.name,
     this.phone,
+    this.address = '',
     this.notes,
     required this.version,
     required this.createdAt,
@@ -20,6 +22,7 @@ class CustomerRow {
   final String workspaceId;
   final String name;
   final String? phone;
+  final String address;
   final String? notes;
   final int version;
   final DateTime createdAt;
@@ -33,6 +36,8 @@ class InvoiceRow {
     required this.workspaceId,
     required this.customerId,
     this.invoiceNumber,
+    this.method = 'credit',
+    this.entryMode,
     required this.status,
     required this.totalMinor,
     required this.discountMinor,
@@ -49,6 +54,8 @@ class InvoiceRow {
   final String workspaceId;
   final String customerId;
   final String? invoiceNumber;
+  final String method;
+  final String? entryMode;
   final String status;
   final int totalMinor;
   final int discountMinor;
@@ -95,6 +102,7 @@ class PaymentRow {
     required this.customerId,
     required this.amountMinor,
     this.notes,
+    this.legacyInvoiceId,
     required this.paymentDate,
     required this.idempotencyKey,
     required this.version,
@@ -107,6 +115,7 @@ class PaymentRow {
   final String customerId;
   final int amountMinor;
   final String? notes;
+  final String? legacyInvoiceId;
   final DateTime paymentDate;
   final String idempotencyKey;
   final int version;
@@ -342,30 +351,34 @@ class AppDao {
   Future<String> createCustomer({
     required String name,
     String? phone,
+    String address = '',
     String? notes,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
-    await _db.customInsert(
-      '''INSERT INTO customers
-           (id, workspace_id, name, phone, notes, version, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?)''',
-      variables: [
-        Variable.withString(id),
-        Variable.withString(_wsId),
-        Variable.withString(name),
-        phone != null ? Variable.withString(phone) : const Variable(null),
-        notes != null ? Variable.withString(notes) : const Variable(null),
-        Variable.withInt(now),
-        Variable.withInt(now),
-      ],
-    );
-    await _enqueueOutbox(
-      entityType: 'customer',
-      entityId: id,
-      operationType: 'create',
-      payload: {'id': id, 'workspace_id': _wsId, 'name': name, 'phone': phone, 'notes': notes},
-    );
+    await _db.transaction(() async {
+      await _db.customInsert(
+        '''INSERT INTO customers
+             (id, workspace_id, name, phone, address, notes, version, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)''',
+        variables: [
+          Variable.withString(id),
+          Variable.withString(_wsId),
+          Variable.withString(name),
+          phone != null ? Variable.withString(phone) : const Variable(null),
+          Variable.withString(address),
+          notes != null ? Variable.withString(notes) : const Variable(null),
+          Variable.withInt(now),
+          Variable.withInt(now),
+        ],
+      );
+      await _enqueueOutbox(
+        entityType: 'customer',
+        entityId: id,
+        operationType: 'create',
+        payload: {'id': id, 'workspace_id': _wsId, 'name': name, 'phone': phone, 'address': address, 'notes': notes},
+      );
+    });
     return id;
   }
 
@@ -373,28 +386,32 @@ class AppDao {
     required String id,
     required String name,
     String? phone,
+    String address = '',
     String? notes,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    await _db.customUpdate(
-      '''UPDATE customers
-         SET name=?, phone=?, notes=?, updated_at=?, version=version+1
-         WHERE id=?''',
-      variables: [
-        Variable.withString(name),
-        phone != null ? Variable.withString(phone) : const Variable(null),
-        notes != null ? Variable.withString(notes) : const Variable(null),
-        Variable.withInt(now),
-        Variable.withString(id),
-      ],
-      updateKind: UpdateKind.update,
-    );
-    await _enqueueOutbox(
-      entityType: 'customer',
-      entityId: id,
-      operationType: 'update',
-      payload: {'id': id, 'name': name, 'phone': phone, 'notes': notes},
-    );
+    await _db.transaction(() async {
+      await _db.customUpdate(
+        '''UPDATE customers
+           SET name=?, phone=?, address=?, notes=?, updated_at=?, version=version+1
+           WHERE id=?''',
+        variables: [
+          Variable.withString(name),
+          phone != null ? Variable.withString(phone) : const Variable(null),
+          Variable.withString(address),
+          notes != null ? Variable.withString(notes) : const Variable(null),
+          Variable.withInt(now),
+          Variable.withString(id),
+        ],
+        updateKind: UpdateKind.update,
+      );
+      await _enqueueOutbox(
+        entityType: 'customer',
+        entityId: id,
+        operationType: 'update',
+        payload: {'id': id, 'name': name, 'phone': phone, 'address': address, 'notes': notes},
+      );
+    });
   }
 
   Future<void> softDeleteCustomer(String id) async {
@@ -468,9 +485,9 @@ class AppDao {
     await _db.customInsert(
       '''INSERT INTO invoices
            (id, workspace_id, customer_id, status, total_minor, discount_minor,
-            notes, is_manual_amount, invoice_date, due_date,
+            notes, is_manual_amount, entry_mode, invoice_date, due_date,
             version, created_at, updated_at)
-         VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, 0, ?, ?)''',
+         VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)''',
       variables: [
         Variable.withString(id),
         Variable.withString(_wsId),
@@ -479,6 +496,7 @@ class AppDao {
         Variable.withInt(discountMinor),
         notes != null ? Variable.withString(notes) : const Variable(null),
         Variable.withBool(isManualAmount),
+        Variable.withString(isManualAmount ? 'amount' : 'products'),
         Variable.withInt(date),
         dueDate != null ? Variable.withInt(dueDate.millisecondsSinceEpoch) : const Variable(null),
         Variable.withInt(now),
@@ -840,6 +858,7 @@ class AppDao {
         workspaceId: r.read<String>('workspace_id'),
         name: r.read<String>('name'),
         phone: r.readNullable<String>('phone'),
+        address: r.readNullable<String>('address') ?? '',
         notes: r.readNullable<String>('notes'),
         version: r.read<int>('version'),
         createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
@@ -854,6 +873,8 @@ class AppDao {
         workspaceId: r.read<String>('workspace_id'),
         customerId: r.read<String>('customer_id'),
         invoiceNumber: r.readNullable<String>('invoice_number'),
+        method: r.readNullable<String>('method') ?? 'credit',
+        entryMode: r.readNullable<String>('entry_mode'),
         status: r.read<String>('status'),
         totalMinor: r.read<int>('total_minor'),
         discountMinor: r.read<int>('discount_minor'),
@@ -888,6 +909,7 @@ class AppDao {
         customerId: r.read<String>('customer_id'),
         amountMinor: r.read<int>('amount_minor'),
         notes: r.readNullable<String>('notes'),
+        legacyInvoiceId: r.readNullable<String>('legacy_invoice_id'),
         paymentDate: DateTime.fromMillisecondsSinceEpoch(r.read<int>('payment_date')),
         idempotencyKey: r.read<String>('idempotency_key'),
         version: r.read<int>('version'),
@@ -898,24 +920,7 @@ class AppDao {
             : null,
       );
 
-  String _encodePayload(Map<String, dynamic> m) {
-    final sb = StringBuffer('{');
-    var first = true;
-    m.forEach((k, v) {
-      if (!first) sb.write(',');
-      first = false;
-      sb.write('"$k":');
-      if (v == null) {
-        sb.write('null');
-      } else if (v is String) {
-        sb.write('"${v.replaceAll('"', '\\"')}"');
-      } else {
-        sb.write(v);
-      }
-    });
-    sb.write('}');
-    return sb.toString();
-  }
+  String _encodePayload(Map<String, dynamic> m) => jsonEncode(m);
 }
 
 // ─── DatabaseService ─────────────────────────────────────────────────────────

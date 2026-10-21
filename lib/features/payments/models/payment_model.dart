@@ -8,6 +8,7 @@ class PaymentModel {
     required this.customerId,
     required this.amountMinor,
     this.notes,
+    this.legacyInvoiceId,
     required this.paymentDate,
     required this.idempotencyKey,
   });
@@ -16,6 +17,7 @@ class PaymentModel {
   final String customerId;
   final int amountMinor;
   final String? notes;
+  final String? legacyInvoiceId;
   final DateTime paymentDate;
   final String idempotencyKey;
 
@@ -26,6 +28,7 @@ class PaymentModel {
         customerId: r.customerId,
         amountMinor: r.amountMinor,
         notes: r.notes,
+        legacyInvoiceId: r.legacyInvoiceId,
         paymentDate: r.paymentDate,
         idempotencyKey: r.idempotencyKey,
       );

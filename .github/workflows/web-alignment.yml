@@ -1,0 +1,38 @@
+name: Flutter web contract alignment
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python scripts/verify_web_alignment.py
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      # Resolve in a disposable copy, leaving the checked-in manifests frozen.
+      - name: Prepare disposable validation copy
+        run: |
+          mkdir -p "$RUNNER_TEMP/elnota-validation"
+          cp -a . "$RUNNER_TEMP/elnota-validation/"
+      - name: Resolve the committed dependency graph
+        working-directory: ${{ runner.temp }}/elnota-validation
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze and test
+        working-directory: ${{ runner.temp }}/elnota-validation
+        run: |
+          flutter analyze --no-pub
+          flutter test --no-pub
+      - name: Verify dependency manifests remain unchanged
+        run: git diff --exit-code -- pubspec.yaml pubspec.lock

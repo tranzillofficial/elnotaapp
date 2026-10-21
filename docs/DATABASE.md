@@ -1,5 +1,7 @@
 # ElNota | Database Contract
 
+> Implementation update 2026-10-21: see [WEB_FLUTTER_ALIGNMENT.md](WEB_FLUTTER_ALIGNMENT.md) for the active compatibility contract, local v2 migration, verification results and deferred production integration. The broader design below is not evidence of completed cloud sync.
+
 > Proposed schema blueprint. **Do not automatically apply** without inspecting the project's existing Supabase/Drift schema, migrating existing data safely, and approval for production changes.
 
 ## Storage principles

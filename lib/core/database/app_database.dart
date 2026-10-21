@@ -3,6 +3,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'package:get/get.dart';
 import '../../core/utils/app_constants.dart';
 import 'database_impl.dart';
+import 'compatibility_schema.dart';
 
 part 'app_database.g.dart';
 
@@ -23,6 +24,19 @@ class AppDatabase extends GeneratedDatabase {
   @override
   int get schemaVersion => AppConstants.dbVersion;
 
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (_) async {
+      await AppDao(this).createTables();
+      await CompatibilitySchema.apply(this);
+    },
+    onUpgrade: (_, from, to) async {
+      // Raw SQL is authoritative; there are no generated table entities.
+      await AppDao(this).createTables();
+      await CompatibilitySchema.apply(this);
+    },
+  );
+
   static QueryExecutor _openConnection() {
     return driftDatabase(name: AppConstants.dbFileName);
   }
@@ -35,6 +49,7 @@ class AppDatabase extends GeneratedDatabase {
     await db.customStatement('PRAGMA foreign_keys=ON');
     // Create tables via DAO
     await AppDao(db).createTables();
+    await CompatibilitySchema.apply(db);
     return db;
   }
 }

@@ -1,5 +1,7 @@
 # ElNota | API & Integration Contracts
 
+> Implementation update 2026-10-21: see [WEB_FLUTTER_ALIGNMENT.md](WEB_FLUTTER_ALIGNMENT.md) for the active compatibility contract, local v2 migration, verification results and deferred production integration. The broader design below is not evidence of completed cloud sync.
+
 > Reference design, not implemented endpoints. Do not assume these exist until verified in the Supabase project.
 
 ## Client/server contract

@@ -8,6 +8,7 @@ class CustomerModel {
     required this.workspaceId,
     required this.name,
     this.phone,
+    this.address = '',
     this.notes,
     required this.createdAt,
     required this.updatedAt,
@@ -17,6 +18,7 @@ class CustomerModel {
   final String workspaceId;
   final String name;
   final String? phone;
+  final String address;
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -26,6 +28,7 @@ class CustomerModel {
         workspaceId: r.workspaceId,
         name: r.name,
         phone: r.phone,
+        address: r.address,
         notes: r.notes,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
