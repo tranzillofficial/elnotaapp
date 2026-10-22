@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../core/database/app_database.dart';
+import '../../../core/database/database_impl.dart';
 import '../../../core/utils/money_utils.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../controllers/invoice_form_controller.dart';
@@ -16,12 +18,14 @@ class InvoiceFormView extends StatefulWidget {
 class _InvoiceFormViewState extends State<InvoiceFormView> {
   late final InvoiceFormController ctrl;
   late final String customerId;
+  String? _selectedCustomerId;
 
   @override
   void initState() {
     super.initState();
     final args = Get.arguments as Map<String, dynamic>?;
     customerId = args?['customer_id'] as String? ?? '';
+    _selectedCustomerId = customerId.isNotEmpty ? customerId : null;
     if (!Get.isRegistered<InvoiceFormController>()) {
       if (!Get.isRegistered<InvoiceRepository>()) {
         Get.lazyPut<InvoiceRepository>(() => InvoiceRepository());
@@ -57,14 +61,14 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                 controller: qtyCtrl,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'product_quantity'.tr,
-                ),
+                decoration: InputDecoration(labelText: 'product_quantity'.tr),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: priceCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   labelText: 'product_price'.tr,
                   suffixText: 'EGP',
@@ -108,9 +112,7 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('invoice_add'.tr),
-      ),
+      appBar: AppBar(title: Text('invoice_add'.tr)),
       body: Obx(() {
         final totalMinor = ctrl.totalMinor;
         final discountMinor = ctrl.discountMinor;
@@ -121,6 +123,35 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (customerId.isEmpty) ...[
+                StreamBuilder<List<CustomerRow>>(
+                  stream: DatabaseService.to.dao.watchCustomers(),
+                  builder: (context, snapshot) {
+                    final customers = snapshot.data ?? [];
+                    return DropdownButtonFormField<String>(
+                      value: _selectedCustomerId,
+                      decoration: InputDecoration(
+                        labelText: 'customer_name'.tr,
+                        prefixIcon: const Icon(Icons.person_outline),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      hint: const Text('اختر العميل...'),
+                      items: customers.map((c) {
+                        return DropdownMenuItem<String>(
+                          value: c.id,
+                          child: Text(c.name),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() => _selectedCustomerId = val);
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
               // Segmented switch: Manual vs Line Items
               SegmentedButton<bool>(
                 segments: [
@@ -145,7 +176,9 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
               if (ctrl.isManualAmount.value) ...[
                 TextField(
                   controller: ctrl.amountCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'invoice_amount'.tr,
                     hintText: '0.00',
@@ -158,7 +191,10 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('invoice_items'.tr, style: theme.textTheme.titleMedium),
+                    Text(
+                      'invoice_items'.tr,
+                      style: theme.textTheme.titleMedium,
+                    ),
                     TextButton.icon(
                       onPressed: _showAddItemDialog,
                       icon: const Icon(Icons.add),
@@ -171,7 +207,9 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                     padding: const EdgeInsets.all(24),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.outlineVariant),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -186,7 +224,8 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: ctrl.items.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
                     itemBuilder: (context, idx) {
                       final item = ctrl.items[idx];
                       return ListTile(
@@ -205,7 +244,10 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
                               onPressed: () => ctrl.removeItem(idx),
                             ),
                           ],
@@ -218,7 +260,9 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
               const SizedBox(height: 16),
               TextField(
                 controller: ctrl.discountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   labelText: 'invoice_discount'.tr,
                   hintText: '0.00',
@@ -243,8 +287,12 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
               // Summary card
               Card(
                 elevation: 0,
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -261,9 +309,14 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('invoice_discount'.tr, style: const TextStyle(color: Colors.green)),
-                            Text('- ${MoneyUtils.formatMinor(discountMinor)}',
-                                style: const TextStyle(color: Colors.green)),
+                            Text(
+                              'invoice_discount'.tr,
+                              style: const TextStyle(color: Colors.green),
+                            ),
+                            Text(
+                              '- ${MoneyUtils.formatMinor(discountMinor)}',
+                              style: const TextStyle(color: Colors.green),
+                            ),
                           ],
                         ),
                       ],
@@ -296,7 +349,14 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                 onPressed: ctrl.isSaving.value
                     ? null
                     : () async {
-                        final ok = await ctrl.save(customerId);
+                        final effectiveId = customerId.isNotEmpty
+                            ? customerId
+                            : _selectedCustomerId;
+                        if (effectiveId == null || effectiveId.isEmpty) {
+                          showErrorSnack('الرجاء اختيار العميل أولاً');
+                          return;
+                        }
+                        final ok = await ctrl.save(effectiveId);
                         if (ok) {
                           Get.back(result: true);
                         }

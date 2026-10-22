@@ -6,6 +6,7 @@ class InvoiceModel {
   const InvoiceModel({
     required this.id,
     required this.customerId,
+    this.customerName,
     required this.status,
     required this.totalMinor,
     required this.discountMinor,
@@ -17,6 +18,7 @@ class InvoiceModel {
 
   final String id;
   final String customerId;
+  final String? customerName;
   final String status;
   final int totalMinor;
   final int discountMinor;
@@ -36,6 +38,7 @@ class InvoiceModel {
   factory InvoiceModel.fromRow(InvoiceRow r) => InvoiceModel(
         id: r.id,
         customerId: r.customerId,
+        customerName: r.customerName,
         status: r.status,
         totalMinor: r.totalMinor,
         discountMinor: r.discountMinor,

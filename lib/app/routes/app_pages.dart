@@ -7,10 +7,12 @@ import '../../features/customers/views/customer_detail_view.dart';
 import '../../features/customers/views/customer_form_view.dart';
 import '../../features/customers/views/customers_list_view.dart';
 import '../../features/invoices/bindings/invoices_binding.dart';
+import '../../features/invoices/views/all_invoices_view.dart';
 import '../../features/invoices/views/invoice_detail_view.dart';
 import '../../features/invoices/views/invoice_form_view.dart';
 import '../../features/payments/bindings/payments_binding.dart';
 import '../../features/payments/views/add_payment_view.dart';
+import '../../features/payments/views/all_payments_view.dart';
 import '../../features/settings/bindings/settings_binding.dart';
 import '../../features/settings/views/settings_view.dart';
 import '../views/home_shell_view.dart';
@@ -60,6 +62,11 @@ class AppPages {
 
     // ── Invoices ────────────────────────────────────────────────────────────
     GetPage(
+      name: AppRoutes.invoices,
+      page: () => const AllInvoicesView(),
+      binding: InvoicesBinding(),
+    ),
+    GetPage(
       name: AppRoutes.invoiceCreate,
       page: () => const InvoiceFormView(),
       binding: InvoicesBinding(),
@@ -78,6 +85,11 @@ class AppPages {
     ),
 
     // ── Payments ────────────────────────────────────────────────────────────
+    GetPage(
+      name: AppRoutes.payments,
+      page: () => const AllPaymentsView(),
+      binding: PaymentsBinding(),
+    ),
     GetPage(
       name: AppRoutes.paymentCreate,
       page: () => const AddPaymentView(),

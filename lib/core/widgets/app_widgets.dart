@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'app_toast.dart';
+
+export 'app_toast.dart';
 
 /// Responsive layout breakpoints.
 abstract class Breakpoints {
@@ -295,41 +298,12 @@ Future<bool> showDestructiveDialog({
   return result ?? false;
 }
 
-/// Shows a concise success snackbar.
-void showSuccessSnack(String message) {
-  Get.snackbar(
-    '',
-    message,
-    titleText: const SizedBox.shrink(),
-    snackPosition: SnackPosition.BOTTOM,
-    backgroundColor: Colors.green.shade700,
-    colorText: Colors.white,
-    duration: const Duration(seconds: 2),
-    margin: const EdgeInsets.all(12),
-    icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-  );
+/// Shows a concise success toast.
+void showSuccessSnack(String message, {String? title}) {
+  AppToast.success(message, title: title);
 }
 
-/// Shows an error snackbar with optional retry.
-void showErrorSnack(String message, {VoidCallback? onRetry}) {
-  Get.snackbar(
-    '',
-    message,
-    titleText: const SizedBox.shrink(),
-    snackPosition: SnackPosition.BOTTOM,
-    backgroundColor: Get.theme.colorScheme.error,
-    colorText: Colors.white,
-    duration: const Duration(seconds: 4),
-    margin: const EdgeInsets.all(12),
-    icon: const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
-    mainButton: onRetry != null
-        ? TextButton(
-            onPressed: onRetry,
-            child: Text(
-              'action_retry'.tr,
-              style: const TextStyle(color: Colors.white),
-            ),
-          )
-        : null,
-  );
+/// Shows an error toast with optional retry.
+void showErrorSnack(String message, {String? title, VoidCallback? onRetry}) {
+  AppToast.error(message, title: title, onRetry: onRetry);
 }

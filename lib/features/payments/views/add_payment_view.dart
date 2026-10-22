@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/database/app_database.dart';
+import '../../../core/database/database_impl.dart';
+import '../../../core/widgets/app_widgets.dart';
 import '../controllers/add_payment_controller.dart';
 import '../repositories/payment_repository.dart';
 
@@ -13,12 +16,14 @@ class AddPaymentView extends StatefulWidget {
 class _AddPaymentViewState extends State<AddPaymentView> {
   late final AddPaymentController ctrl;
   late final String customerId;
+  String? _selectedCustomerId;
 
   @override
   void initState() {
     super.initState();
     final args = Get.arguments as Map<String, dynamic>?;
     customerId = args?['customer_id'] as String? ?? '';
+    _selectedCustomerId = customerId.isNotEmpty ? customerId : null;
     if (!Get.isRegistered<AddPaymentController>()) {
       if (!Get.isRegistered<PaymentRepository>()) {
         Get.lazyPut<PaymentRepository>(() => PaymentRepository());
@@ -47,18 +52,47 @@ class _AddPaymentViewState extends State<AddPaymentView> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('payment_add'.tr),
-      ),
+      appBar: AppBar(title: Text('payment_add'.tr)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (customerId.isEmpty) ...[
+              StreamBuilder<List<CustomerRow>>(
+                stream: DatabaseService.to.dao.watchCustomers(),
+                builder: (context, snapshot) {
+                  final customers = snapshot.data ?? [];
+                  return DropdownButtonFormField<String>(
+                    value: _selectedCustomerId,
+                    decoration: InputDecoration(
+                      labelText: 'customer_name'.tr,
+                      prefixIcon: const Icon(Icons.person_outline),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    hint: const Text('اختر العميل...'),
+                    items: customers.map((c) {
+                      return DropdownMenuItem<String>(
+                        value: c.id,
+                        child: Text(c.name),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() => _selectedCustomerId = val);
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
             TextField(
               controller: ctrl.amountCtrl,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -96,23 +130,32 @@ class _AddPaymentViewState extends State<AddPaymentView> {
               ),
             ),
             const SizedBox(height: 28),
-            Obx(() => ElevatedButton(
-                  onPressed: ctrl.isSaving.value
-                      ? null
-                      : () async {
-                          final ok = await ctrl.submit(customerId);
-                          if (ok) {
-                            Get.back(result: true);
-                          }
-                        },
-                  child: ctrl.isSaving.value
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text('action_confirm'.tr),
-                )),
+            Obx(
+              () => ElevatedButton(
+                onPressed: ctrl.isSaving.value
+                    ? null
+                    : () async {
+                        final effectiveId = customerId.isNotEmpty
+                            ? customerId
+                            : _selectedCustomerId;
+                        if (effectiveId == null || effectiveId.isEmpty) {
+                          showErrorSnack('الرجاء اختيار العميل أولاً');
+                          return;
+                        }
+                        final ok = await ctrl.submit(effectiveId);
+                        if (ok) {
+                          Get.back(result: true);
+                        }
+                      },
+                child: ctrl.isSaving.value
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text('action_confirm'.tr),
+              ),
+            ),
           ],
         ),
       ),

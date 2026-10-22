@@ -32,6 +32,7 @@ class InvoiceRow {
     required this.id,
     required this.workspaceId,
     required this.customerId,
+    this.customerName,
     this.invoiceNumber,
     required this.status,
     required this.totalMinor,
@@ -48,6 +49,7 @@ class InvoiceRow {
   final String id;
   final String workspaceId;
   final String customerId;
+  final String? customerName;
   final String? invoiceNumber;
   final String status;
   final int totalMinor;
@@ -93,6 +95,7 @@ class PaymentRow {
     required this.id,
     required this.workspaceId,
     required this.customerId,
+    this.customerName,
     required this.amountMinor,
     this.notes,
     required this.paymentDate,
@@ -105,6 +108,7 @@ class PaymentRow {
   final String id;
   final String workspaceId;
   final String customerId;
+  final String? customerName;
   final int amountMinor;
   final String? notes;
   final DateTime paymentDate;
@@ -113,6 +117,47 @@ class PaymentRow {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+}
+
+class WorkspaceStats {
+  const WorkspaceStats({
+    required this.customersCount,
+    required this.invoicesCount,
+    required this.paymentsCount,
+    required this.totalInvoicedMinor,
+    required this.totalCollectedMinor,
+  });
+
+  final int customersCount;
+  final int invoicesCount;
+  final int paymentsCount;
+  final int totalInvoicedMinor;
+  final int totalCollectedMinor;
+
+  int get totalReceivablesMinor => totalInvoicedMinor - totalCollectedMinor;
+}
+
+class RecentActivityItem {
+  const RecentActivityItem({
+    required this.id,
+    required this.customerId,
+    required this.customerName,
+    required this.type,
+    required this.amountMinor,
+    required this.date,
+    this.notes,
+  });
+
+  final String id;
+  final String customerId;
+  final String customerName;
+  final String type; // 'invoice' or 'payment'
+  final int amountMinor;
+  final DateTime date;
+  final String? notes;
+
+  bool get isInvoice => type == 'invoice';
+  bool get isPayment => type == 'payment';
 }
 
 class LedgerEntryRow {
@@ -432,6 +477,37 @@ class AppDao {
         .map((rows) => rows.map(_mapInvoice).toList());
   }
 
+  Stream<List<InvoiceRow>> watchAllInvoices({String? search, String? status}) {
+    final searchClause = search != null && search.isNotEmpty
+        ? "AND (LOWER(c.name) LIKE ? OR LOWER(i.notes) LIKE ? OR i.invoice_number LIKE ?)"
+        : "";
+    final statusClause = status != null && status.isNotEmpty
+        ? "AND i.status = ?"
+        : "";
+    
+    final vars = <Variable>[Variable.withString(_wsId)];
+    if (search != null && search.isNotEmpty) {
+      vars.add(Variable.withString('%${search.toLowerCase()}%'));
+      vars.add(Variable.withString('%${search.toLowerCase()}%'));
+      vars.add(Variable.withString('%$search%'));
+    }
+    if (status != null && status.isNotEmpty) {
+      vars.add(Variable.withString(status));
+    }
+
+    return _db
+        .customSelect(
+          '''SELECT i.*, c.name AS customer_name
+             FROM invoices i
+             LEFT JOIN customers c ON c.id = i.customer_id
+             WHERE i.workspace_id = ? AND i.deleted_at IS NULL $searchClause $statusClause
+             ORDER BY i.invoice_date DESC''',
+          variables: vars,
+        )
+        .watch()
+        .map((rows) => rows.map(_mapInvoice).toList());
+  }
+
   Stream<InvoiceRow?> watchInvoice(String id) {
     return _db
         .customSelect(
@@ -569,6 +645,111 @@ class AppDao {
         )
         .watch()
         .map((rows) => rows.map(_mapPayment).toList());
+  }
+
+  Stream<List<PaymentRow>> watchAllPayments({String? search}) {
+    final searchClause = search != null && search.isNotEmpty
+        ? "AND (LOWER(c.name) LIKE ? OR LOWER(p.notes) LIKE ?)"
+        : "";
+    final vars = <Variable>[Variable.withString(_wsId)];
+    if (search != null && search.isNotEmpty) {
+      vars.add(Variable.withString('%${search.toLowerCase()}%'));
+      vars.add(Variable.withString('%${search.toLowerCase()}%'));
+    }
+
+    return _db
+        .customSelect(
+          '''SELECT p.*, c.name AS customer_name
+             FROM payments p
+             LEFT JOIN customers c ON c.id = p.customer_id
+             WHERE p.workspace_id = ? AND p.deleted_at IS NULL $searchClause
+             ORDER BY p.payment_date DESC''',
+          variables: vars,
+        )
+        .watch()
+        .map((rows) => rows.map(_mapPayment).toList());
+  }
+
+  Stream<WorkspaceStats> watchWorkspaceStats() {
+    return _db
+        .customSelect(
+          '''SELECT
+               (SELECT COUNT(*) FROM customers WHERE workspace_id = ? AND deleted_at IS NULL) AS customers_count,
+               (SELECT COUNT(*) FROM invoices WHERE workspace_id = ? AND deleted_at IS NULL) AS invoices_count,
+               (SELECT COUNT(*) FROM payments WHERE workspace_id = ? AND deleted_at IS NULL) AS payments_count,
+               (SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE workspace_id = ? AND event_type = 'invoice_charge') AS invoiced_minor,
+               (SELECT COALESCE(SUM(ABS(amount_minor)), 0) FROM ledger_entries WHERE workspace_id = ? AND event_type = 'payment_receipt') AS collected_minor''',
+          variables: [
+            Variable.withString(_wsId),
+            Variable.withString(_wsId),
+            Variable.withString(_wsId),
+            Variable.withString(_wsId),
+            Variable.withString(_wsId),
+          ],
+        )
+        .watch()
+        .map((rows) {
+          if (rows.isEmpty) {
+            return const WorkspaceStats(
+              customersCount: 0,
+              invoicesCount: 0,
+              paymentsCount: 0,
+              totalInvoicedMinor: 0,
+              totalCollectedMinor: 0,
+            );
+          }
+          final r = rows.first;
+          return WorkspaceStats(
+            customersCount: r.read<int>('customers_count'),
+            invoicesCount: r.read<int>('invoices_count'),
+            paymentsCount: r.read<int>('payments_count'),
+            totalInvoicedMinor: r.read<int>('invoiced_minor'),
+            totalCollectedMinor: r.read<int>('collected_minor'),
+          );
+        });
+  }
+
+  Stream<List<RecentActivityItem>> watchRecentActivities({int limit = 10}) {
+    return _db
+        .customSelect(
+          '''SELECT
+               id, customer_id, customer_name, 'invoice' AS type,
+               (total_minor - discount_minor) AS amount_minor,
+               invoice_date AS trans_date, notes
+             FROM (
+               SELECT i.*, c.name AS customer_name
+               FROM invoices i
+               LEFT JOIN customers c ON c.id = i.customer_id
+               WHERE i.workspace_id = ? AND i.deleted_at IS NULL
+             )
+             UNION ALL
+             SELECT
+               id, customer_id, customer_name, 'payment' AS type,
+               amount_minor, payment_date AS trans_date, notes
+             FROM (
+               SELECT p.*, c.name AS customer_name
+               FROM payments p
+               LEFT JOIN customers c ON c.id = p.customer_id
+               WHERE p.workspace_id = ? AND p.deleted_at IS NULL
+             )
+             ORDER BY trans_date DESC
+             LIMIT ?''',
+          variables: [
+            Variable.withString(_wsId),
+            Variable.withString(_wsId),
+            Variable.withInt(limit),
+          ],
+        )
+        .watch()
+        .map((rows) => rows.map((r) => RecentActivityItem(
+              id: r.read<String>('id'),
+              customerId: r.read<String>('customer_id'),
+              customerName: r.readNullable<String>('customer_name') ?? 'عميل',
+              type: r.read<String>('type'),
+              amountMinor: r.read<int>('amount_minor'),
+              date: DateTime.fromMillisecondsSinceEpoch(r.read<int>('trans_date')),
+              notes: r.readNullable<String>('notes'),
+            )).toList());
   }
 
   /// Idempotent: if idempotency_key already exists, silently skips.
@@ -853,6 +1034,9 @@ class AppDao {
         id: r.read<String>('id'),
         workspaceId: r.read<String>('workspace_id'),
         customerId: r.read<String>('customer_id'),
+        customerName: r.data.containsKey('customer_name')
+            ? r.readNullable<String>('customer_name')
+            : null,
         invoiceNumber: r.readNullable<String>('invoice_number'),
         status: r.read<String>('status'),
         totalMinor: r.read<int>('total_minor'),
@@ -886,6 +1070,9 @@ class AppDao {
         id: r.read<String>('id'),
         workspaceId: r.read<String>('workspace_id'),
         customerId: r.read<String>('customer_id'),
+        customerName: r.data.containsKey('customer_name')
+            ? r.readNullable<String>('customer_name')
+            : null,
         amountMinor: r.read<int>('amount_minor'),
         notes: r.readNullable<String>('notes'),
         paymentDate: DateTime.fromMillisecondsSinceEpoch(r.read<int>('payment_date')),

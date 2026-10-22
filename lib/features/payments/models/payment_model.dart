@@ -6,6 +6,7 @@ class PaymentModel {
   const PaymentModel({
     required this.id,
     required this.customerId,
+    this.customerName,
     required this.amountMinor,
     this.notes,
     required this.paymentDate,
@@ -14,6 +15,7 @@ class PaymentModel {
 
   final String id;
   final String customerId;
+  final String? customerName;
   final int amountMinor;
   final String? notes;
   final DateTime paymentDate;
@@ -24,6 +26,7 @@ class PaymentModel {
   factory PaymentModel.fromRow(PaymentRow r) => PaymentModel(
         id: r.id,
         customerId: r.customerId,
+        customerName: r.customerName,
         amountMinor: r.amountMinor,
         notes: r.notes,
         paymentDate: r.paymentDate,

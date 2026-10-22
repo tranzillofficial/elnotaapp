@@ -11,6 +11,11 @@ class PaymentRepository {
             (rows) => rows.map(PaymentModel.fromRow).toList(),
           );
 
+  Stream<List<PaymentModel>> watchAll({String? search}) =>
+      _dao.watchAllPayments(search: search).map(
+            (rows) => rows.map(PaymentModel.fromRow).toList(),
+          );
+
   Future<void> addPayment({
     required String customerId,
     required int amountMinor,

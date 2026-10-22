@@ -11,6 +11,11 @@ class InvoiceRepository {
             (rows) => rows.map(InvoiceModel.fromRow).toList(),
           );
 
+  Stream<List<InvoiceModel>> watchAll({String? search, String? status}) =>
+      _dao.watchAllInvoices(search: search, status: status).map(
+            (rows) => rows.map(InvoiceModel.fromRow).toList(),
+          );
+
   Stream<InvoiceModel?> watchOne(String id) =>
       _dao.watchInvoice(id).map((r) => r == null ? null : InvoiceModel.fromRow(r));
 
