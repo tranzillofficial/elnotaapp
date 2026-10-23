@@ -32,3 +32,19 @@ web compilation and QR protocol tests. Build outputs are not committed.
 No deployment, production migration, customer import or artifact publication is
 part of this source delivery. Existing production customers remain on the old
 application until the compatibility and staged migration work is approved.
+
+## Standalone landing preview — 23 October 2026
+
+The user subsequently authorized a separate Next.js landing preview. It is now
+in `landing/` and deployed at https://elnotaapp-landing-preview.vercel.app on
+the independent Vercel project `elnotaapp-landing-preview`. No old domain was
+attached and no old Vercel project was changed. Preview pages are noindex.
+
+`next build` and TypeScript checking passed. The Flutter SDK became available
+again and all 60 Flutter tests passed. The one unnecessary test import reported
+by analysis was removed. The deployed landing was checked in the browser,
+including desktop/mobile layout, the Web entry page, and FAQ expansion.
+
+The user chose landing preview only instead of creating a test Supabase project.
+No new project or QR backend deployment was created. `/web` truthfully displays
+the pending setup status. APK/installer downloads are still unavailable.
