@@ -6,12 +6,12 @@ import '../../network/connectivity_service.dart';
 import '../../services/supabase_service.dart';
 import '../models/sync_operation.dart';
 import '../../services/account_access_service.dart';
+import '../../utils/app_runtime.dart';
 
 class SyncService extends GetxService {
-  static const ledgerCloudEnabled = bool.fromEnvironment(
-    'ENABLE_RELATIONAL_SYNC',
-    defaultValue: false,
-  );
+  static const ledgerCloudEnabled =
+      !AppRuntime.demo &&
+      bool.fromEnvironment('ENABLE_RELATIONAL_SYNC', defaultValue: false);
   static SyncService get to => Get.find<SyncService>();
 
   SyncService({AppDao? dao}) : _dao = dao ?? DatabaseService.to.dao;

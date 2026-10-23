@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'supabase_service.dart';
+import '../utils/app_runtime.dart';
 
 class AccountAccess {
   const AccountAccess({
@@ -48,6 +49,7 @@ class AccountAccessService extends GetxService {
   }
 
   Future<void> refreshAccess() async {
+    if (AppRuntime.demo) return;
     final uid = _uid;
     onlineVerified.value = false;
     if (uid == null) {

@@ -9,6 +9,8 @@ import '../../core/sync/services/sync_service.dart';
 import '../../features/auth/services/auth_service.dart';
 import '../../core/services/account_access_service.dart';
 import '../../core/services/daily_backup_service.dart';
+import '../../core/utils/app_runtime.dart';
+import '../../core/services/demo_data.dart';
 
 /// Root application binding.
 /// Core services are registered in [initServices] before [runApp].
@@ -52,16 +54,31 @@ Future<void> initServices() async {
   Get.put<ThemeService>(ThemeService(), permanent: true);
   Get.put<LocaleService>(LocaleService(), permanent: true);
   final supabase = Get.put<SupabaseService>(SupabaseService(), permanent: true);
-  await supabase.init(
-    url: const String.fromEnvironment('SUPABASE_URL'),
-    anonKey: const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY'),
-  );
+  if (!AppRuntime.demo) {
+    await supabase.init(
+      url: const String.fromEnvironment('SUPABASE_URL'),
+      anonKey: const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY'),
+    );
+  }
   final userId = supabase.client?.auth.currentUser?.id;
   final dbSvc = Get.put<DatabaseService>(DatabaseService(), permanent: true);
   final db = await AppDatabase.open(
-    name: userId == null ? null : 'elnota_$userId.db',
+    name: AppRuntime.demo
+        ? AppRuntime.demoDatabase
+        : userId == null
+        ? null
+        : 'elnota_$userId.db',
   );
   dbSvc.attach(db, accountId: userId);
+  if (AppRuntime.demo) {
+    await DemoData.seed(dbSvc.dao);
+    final access = AccountAccessService(automaticallyRefresh: false);
+    access.access.value = const AccountAccess(
+      active: true,
+      catalogOverride: true,
+    );
+    Get.put(access, permanent: true);
+  }
   Get.put<ConnectivityService>(ConnectivityService(), permanent: true);
   Get.put<AuthService>(AuthService(), permanent: true);
   Get.put<SyncService>(SyncService(), permanent: true);

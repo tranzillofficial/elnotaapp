@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Only the isolated preview project supplies these public client values.
+# The preview supplies only public Auth client values. No ledger write flags.
 # Never enable the relational sync or admin write flags here.
 if [[ -z "${SUPABASE_URL:-}" || -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]]; then
   echo 'Preview Supabase URL and publishable key are required.' >&2
@@ -15,5 +15,12 @@ export PATH="$sdk_dir/bin:$PATH"
 flutter config --no-analytics
 flutter pub get --enforce-lockfile
 flutter build web --release --no-pub \
+  --no-wasm-dry-run \
   --dart-define="SUPABASE_URL=$SUPABASE_URL" \
   --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+mkdir -p build/site
+cp -a build/web/. build/site/
+flutter build web --release --no-pub --no-wasm-dry-run \
+  --base-href=/demo/ --dart-define=ELNOTA_DEMO=true
+mkdir -p build/site/demo
+cp -a build/web/. build/site/demo/

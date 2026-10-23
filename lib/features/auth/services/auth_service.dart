@@ -4,6 +4,7 @@ import '../../../core/sync/services/sync_service.dart';
 import 'package:get/get.dart';
 import '../../../core/services/supabase_service.dart';
 import '../models/user_session.dart';
+import '../../../core/utils/app_runtime.dart';
 
 class AuthService extends GetxService {
   static AuthService get to => Get.find<AuthService>();
@@ -22,6 +23,15 @@ class AuthService extends GetxService {
   }
 
   void _restoreLocalSession() {
+    if (AppRuntime.demo) {
+      currentSession.value = const UserSession(
+        userId: 'demo',
+        email: 'demo@elnota.local',
+        workspaceId: 'default',
+        workspaceName: 'النوتة — حساب ديمو',
+      );
+      return;
+    }
     final user = Get.isRegistered<SupabaseService>()
         ? SupabaseService.to.client?.auth.currentUser
         : null;
@@ -50,6 +60,9 @@ class AuthService extends GetxService {
   }
 
   Future<void> acceptServerSession() async {
+    if (AppRuntime.demo) {
+      throw StateError('الديمو لا يدعم الدخول إلى حساب حقيقي');
+    }
     final user = SupabaseService.to.client?.auth.currentUser;
     if (user == null) throw StateError('Authenticated session required');
     if (Get.isRegistered<DatabaseService>()) {
@@ -63,6 +76,7 @@ class AuthService extends GetxService {
   }
 
   Future<bool> signIn({required String email, required String password}) async {
+    if (AppRuntime.demo) return false;
     isLoading.value = true;
     try {
       final supa = SupabaseService.to;
@@ -90,6 +104,7 @@ class AuthService extends GetxService {
     required String password,
     required String storeName,
   }) async {
+    if (AppRuntime.demo) return false;
     isLoading.value = true;
     try {
       final supa = SupabaseService.to;
@@ -115,6 +130,7 @@ class AuthService extends GetxService {
   }
 
   Future<void> signOut() async {
+    if (AppRuntime.demo) return;
     isLoading.value = true;
     try {
       final supa = SupabaseService.to;

@@ -9,6 +9,7 @@ import 'core/services/theme_service.dart';
 import 'core/services/locale_service.dart';
 import 'core/utils/l10n/app_translations.dart';
 import 'core/utils/app_constants.dart';
+import 'core/utils/app_runtime.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,7 +71,44 @@ class ElNotaApp extends StatelessWidget {
             LocaleService.to.locale.languageCode == AppConstants.localeAr;
         return Directionality(
           textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-          child: child ?? const SizedBox.shrink(),
+          child: AppRuntime.demo
+              ? Column(
+                  children: [
+                    Material(
+                      color: const Color(0xFFECF7F0),
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.science_outlined,
+                                size: 18,
+                                color: Color(0xFF00845B),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'حساب ديمو — بيانات تجريبية محفوظة في هذا المتصفح فقط. لا تتصل بحسابك الحقيقي.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF164C38),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: child ?? const SizedBox.shrink()),
+                  ],
+                )
+              : child ?? const SizedBox.shrink(),
         );
       },
     );

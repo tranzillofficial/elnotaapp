@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/utils/app_runtime.dart';
 
 abstract interface class AdminGateway {
   Future<bool> isAdmin();
@@ -12,10 +13,9 @@ abstract interface class AdminGateway {
 }
 
 class AdminRepository implements AdminGateway {
-  static const writesEnabled = bool.fromEnvironment(
-    'ENABLE_ADMIN_WRITES',
-    defaultValue: false,
-  );
+  static const writesEnabled =
+      !AppRuntime.demo &&
+      bool.fromEnvironment('ENABLE_ADMIN_WRITES', defaultValue: false);
   SupabaseClient? get _client =>
       Get.isRegistered<SupabaseService>() ? SupabaseService.to.client : null;
   @override

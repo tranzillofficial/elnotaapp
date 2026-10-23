@@ -6,6 +6,7 @@ import '../../features/auth/views/device_login_view.dart';
 import '../../features/customers/views/customer_statement_view.dart';
 import 'package:get/get.dart';
 import '../../core/utils/app_routes.dart';
+import '../../core/utils/app_runtime.dart';
 import '../../features/auth/bindings/auth_binding.dart';
 import '../../features/auth/views/login_view.dart';
 import '../../features/customers/bindings/customers_binding.dart';
@@ -134,7 +135,8 @@ class AppPages {
 class WebSessionGuard extends GetMiddleware {
   @override
   RouteSettings? redirect(String? route) {
-    if (kIsWeb &&
+    if (!AppRuntime.demo &&
+        kIsWeb &&
         (!Get.isRegistered<SupabaseService>() ||
             SupabaseService.to.client?.auth.currentSession == null)) {
       return const RouteSettings(name: AppRoutes.login);

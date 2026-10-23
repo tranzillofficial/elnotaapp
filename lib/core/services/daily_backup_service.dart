@@ -8,6 +8,7 @@ import '../database/app_database.dart';
 import '../network/connectivity_service.dart';
 import 'account_access_service.dart';
 import 'supabase_service.dart';
+import '../utils/app_runtime.dart';
 
 /// Local-midnight policy: missed days coalesce into one current snapshot.
 abstract class DailyBackupPolicy {
@@ -18,10 +19,9 @@ abstract class DailyBackupPolicy {
 }
 
 class DailyBackupService extends GetxService with WidgetsBindingObserver {
-  static const backendEnabled = bool.fromEnvironment(
-    'ENABLE_V2_CLOUD_BACKUP',
-    defaultValue: false,
-  );
+  static const backendEnabled =
+      !AppRuntime.demo &&
+      bool.fromEnvironment('ENABLE_V2_CLOUD_BACKUP', defaultValue: false);
   final busy = false.obs;
   final lastUploaded = Rxn<DateTime>();
   final error = Rxn<String>();
