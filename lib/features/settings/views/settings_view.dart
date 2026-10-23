@@ -1,10 +1,15 @@
 import '../../admin/repositories/admin_repository.dart';
 import '../../auth/views/device_login_view.dart';
+import '../../auth/views/device_scanner_view.dart';
+import 'package:flutter/foundation.dart';
+import '../../../core/services/account_access_service.dart';
+import '../../../core/services/daily_backup_service.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:printing/printing.dart';
 import '../../../core/widgets/design_widgets.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/accounting_form_frame.dart';
 import '../../../core/services/theme_service.dart';
 import '../../../core/services/pdf_service.dart';
@@ -234,6 +239,12 @@ class _SettingsViewState extends State<SettingsView> {
     );
     Widget syncContent() {
       final summary = sync?.summary.value;
+      final cloud =
+          Get.isRegistered<AccountAccessService>() &&
+          AccountAccessService.to.cloudEnabled;
+      final backup = Get.isRegistered<DailyBackupService>()
+          ? Get.find<DailyBackupService>()
+          : null;
       final online = connectivity?.isOnline.value ?? false;
       return Padding(
         padding: const EdgeInsets.all(20),
@@ -258,20 +269,37 @@ class _SettingsViewState extends State<SettingsView> {
               style: const TextStyle(color: designMuted),
             ),
             const SizedBox(height: 16),
-            const _SettingRow(
-              'المزامنة التلقائية',
-              Text('عند عودة الاتصال', style: TextStyle(color: designMuted)),
-            ),
-            const _SettingRow(
-              'النسخ الاحتياطي اليومي',
+            _SettingRow(
+              'حالة الحساب',
               Text(
-                'غير مفعّل على هذا الجهاز',
-                style: TextStyle(color: designMuted),
+                cloud ? 'كلاود نشط' : 'محلي — بيانات مستقلة على كل جهاز',
+                style: const TextStyle(color: designMuted),
               ),
             ),
+            _SettingRow(
+              'النسخ الاحتياطي اليومي',
+              Text(
+                !cloud
+                    ? 'لعملاء الكلاود فقط'
+                    : DailyBackupService.backendEnabled
+                    ? 'منتصف الليل بتوقيت الجهاز؛ إعادة المحاولة عند الاتصال'
+                    : 'بانتظار تفعيل خدمة النسخ الجديدة',
+                style: const TextStyle(color: designMuted),
+              ),
+            ),
+            if (backup?.lastUploaded.value != null)
+              Text(
+                'آخر نسخة: ${backup!.lastUploaded.value}',
+                style: const TextStyle(color: designMuted, fontSize: 12),
+              ),
+            if (backup?.error.value != null)
+              Text(
+                backup!.error.value!,
+                style: const TextStyle(color: designMuted, fontSize: 12),
+              ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
-              onPressed: sync == null || summary?.isSyncing == true
+              onPressed: !cloud || sync == null || summary?.isSyncing == true
                   ? null
                   : () async {
                       final ok = await sync.syncNow();
@@ -301,6 +329,10 @@ class _SettingsViewState extends State<SettingsView> {
                   'تصدير نسخة محلية',
                   Icons.download_outlined,
                   () async {
+                    if (!cloud) {
+                      AppToast.info('النسخ الاحتياطي متاح لاشتراك الكلاود فقط');
+                      return;
+                    }
                     try {
                       await BackupService().exportAndShareBackup();
                     } catch (_) {
@@ -325,7 +357,10 @@ class _SettingsViewState extends State<SettingsView> {
 
     final backups = DesignPanel(
       title: 'النسخ الاحتياطي والمزامنة',
-      child: sync != null || connectivity != null
+      child:
+          sync != null ||
+              connectivity != null ||
+              Get.isRegistered<AccountAccessService>()
           ? Obx(syncContent)
           : syncContent(),
     );
@@ -376,9 +411,16 @@ class _SettingsViewState extends State<SettingsView> {
             _SettingRow(
               'ربط متصفح',
               TextButton.icon(
-                onPressed: () => Get.to(() => const DeviceApprovalView()),
+                onPressed: () => Get.to(
+                  () =>
+                      !kIsWeb &&
+                          (defaultTargetPlatform == TargetPlatform.android ||
+                              defaultTargetPlatform == TargetPlatform.iOS)
+                      ? const DeviceScannerView()
+                      : const DeviceApprovalView(),
+                ),
                 icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('ربط جهاز جديد'),
+                label: const Text('مسح QR لربط جهاز'),
               ),
             ),
             _SettingRow(
@@ -524,7 +566,7 @@ class _SettingRow extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                control,
+                Flexible(child: control),
               ],
             ),
     ),

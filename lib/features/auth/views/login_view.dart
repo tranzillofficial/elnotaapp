@@ -1,5 +1,6 @@
 import '../../../core/utils/app_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../../core/utils/app_constants.dart';
 import '../controllers/auth_controller.dart';
@@ -157,11 +158,12 @@ class LoginView extends GetView<AuthController> {
                   const SizedBox(height: 16),
 
                   // Continue Offline
-                  OutlinedButton.icon(
-                    onPressed: controller.continueOffline,
-                    icon: const Icon(Icons.offline_bolt_outlined),
-                    label: const Text('المتابعة دون اتصال (محليًا)'),
-                  ),
+                  if (!kIsWeb)
+                    OutlinedButton.icon(
+                      onPressed: controller.continueOffline,
+                      icon: const Icon(Icons.offline_bolt_outlined),
+                      label: const Text('المتابعة دون اتصال (محليًا)'),
+                    ),
                   const SizedBox(height: 24),
 
                   // Privacy / Note
@@ -182,7 +184,7 @@ class LoginView extends GetView<AuthController> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'بياناتك المحاسبية مشفرة ومحفوظة محليًا على جهازك وتتم مزامنتها تلقائيًا عند توفر الاتصال.',
+                            'بدون كلاود: بيانات مستقلة على كل جهاز. مع اشتراك كلاود نشط: مزامنة بين الأجهزة عند تفعيل خدمة الكلاود.',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

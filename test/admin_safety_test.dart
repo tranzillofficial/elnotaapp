@@ -6,6 +6,11 @@ import 'package:elnota/core/database/database_impl.dart';
 import 'package:elnota/core/sync/services/sync_service.dart';
 
 class _AdminGateway implements AdminGateway {
+  @override
+  Future<void> setCatalog(String id, bool enabled) async {
+    writes++;
+  }
+
   bool authorized = false;
   bool fail = false;
   int reads = 0;

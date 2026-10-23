@@ -484,8 +484,16 @@ class DesignSidebar extends StatelessWidget {
       Icons.description_outlined,
       Icons.payment_outlined,
       Icons.settings_outlined,
+      Icons.inventory_2_outlined,
     ];
-    const labels = ['الرئيسية', 'العملاء', 'الفواتير', 'الدفعات', 'الإعدادات'];
+    const labels = [
+      'الرئيسية',
+      'العملاء',
+      'الفواتير',
+      'الدفعات',
+      'الإعدادات',
+      'المنتجات',
+    ];
     return Container(
       width: 92,
       decoration: const BoxDecoration(

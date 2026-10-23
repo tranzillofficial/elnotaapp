@@ -16,7 +16,7 @@ class AuthController extends GetxController {
 
   Future<void> submit() async {
     final email = emailCtrl.text.trim();
-    final password = passwordCtrl.text.trim();
+    final password = passwordCtrl.text;
 
     if (email.isEmpty || !email.contains('@')) {
       showErrorSnack('يرجى إدخال بريد إلكتروني صالح');
@@ -29,8 +29,14 @@ class AuthController extends GetxController {
 
     bool success;
     if (isSignUp.value) {
-      final storeName = storeNameCtrl.text.trim().isEmpty ? 'متجري' : storeNameCtrl.text.trim();
-      success = await auth.signUp(email: email, password: password, storeName: storeName);
+      final storeName = storeNameCtrl.text.trim().isEmpty
+          ? 'متجري'
+          : storeNameCtrl.text.trim();
+      success = await auth.signUp(
+        email: email,
+        password: password,
+        storeName: storeName,
+      );
     } else {
       success = await auth.signIn(email: email, password: password);
     }

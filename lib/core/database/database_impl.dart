@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
+import '../../features/products/models/catalog_models.dart';
+
+part 'catalog_dao.dart';
 
 // ─── Domain Models ───────────────────────────────────────────────────────────
 
@@ -225,7 +228,7 @@ class AppDao {
   Future<Map<String, dynamic>>
   exportLocalSnapshot() => _db.transaction(() async {
     final snapshot = <String, dynamic>{
-      'schema_version': 2,
+      'schema_version': 3,
       'workspace_id': _wsId,
       'exported_at': DateTime.now().toIso8601String(),
     };
@@ -236,6 +239,8 @@ class AppDao {
       'ledger_entries',
       'invoice_terms',
       'sync_outbox',
+      'product_categories',
+      'catalog_products',
     ]) {
       snapshot[table] =
           (await _db
@@ -260,6 +265,7 @@ class AppDao {
   });
 
   Future<void> createTables() async {
+    await createCatalogTables();
     await _db.customStatement('''
       CREATE TABLE IF NOT EXISTS invoice_terms (
         invoice_id TEXT PRIMARY KEY,

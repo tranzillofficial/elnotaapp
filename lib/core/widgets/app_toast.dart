@@ -70,10 +70,7 @@ abstract class AppToast {
       ),
       messageText: Text(
         message,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 13,
-        ),
+        style: const TextStyle(color: Colors.white70, fontSize: 13),
       ),
       icon: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -85,6 +82,7 @@ abstract class AppToast {
         child: Icon(icon, color: iconColor, size: 22),
       ),
       snackPosition: SnackPosition.TOP,
+      maxWidth: 440,
       backgroundColor: backgroundColor,
       borderRadius: 14,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

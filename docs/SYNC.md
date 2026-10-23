@@ -83,3 +83,22 @@ The new relational push/pull implementation is disabled unless explicitly built
 with ENABLE_RELATIONAL_SYNC=true. Startup, reconnect and direct push/pull calls
 therefore cannot write new ledger records into the old project's contract.
 Only enable it against a reviewed isolated compatible staging backend first.
+
+## Subscription and daily-backup contract
+Authentication is separate from cloud entitlement. Basic accounts can sign in
+on multiple devices, but each device/browser profile keeps its own account DB.
+Only activated, unsuspended accounts with unexpired server `cloud_until` can
+request cloud sync or backups. Catalog override is a separate server-owned flag.
+Entitlements cache by authenticated user for offline use and refresh on auth
+changes and periodically. Server RLS must independently enforce access.
+
+DailyBackupService persists a completed/baseline day per user. While running,
+it checks local midnight each minute and retries on reconnect and resume.
+Missed days coalesce into a current snapshot; failed uploads never advance the
+marker. It checks freshly verified cloud entitlement and the same auth user
+before upload. ENABLE_V2_CLOUD_BACKUP defaults false until staging is verified.
+This is not a guarantee of execution at midnight while the app is terminated:
+OS background scheduling and closed-browser behavior require platform testing.
+Snapshots are recovery backups, not a multi-device ledger merge protocol.
+Legacy JSON conversion and relational cloud sync remain unenabled; do not treat
+this change as completion of live cross-device access or customer migration.

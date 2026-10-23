@@ -9,6 +9,7 @@ import '../../features/invoices/views/all_invoices_view.dart';
 import '../../features/payments/views/all_payments_view.dart';
 import '../../features/settings/views/settings_view.dart';
 import 'home_overview_view.dart';
+import '../../features/products/views/products_view.dart';
 import '../../core/widgets/design_widgets.dart';
 
 /// Navigation destination data model.
@@ -56,6 +57,12 @@ const _destinations = [
     selectedIcon: Icons.settings_rounded,
     route: AppRoutes.settings,
   ),
+  _NavDestination(
+    label: 'المنتجات',
+    icon: Icons.inventory_2_outlined,
+    selectedIcon: Icons.inventory_2,
+    route: AppRoutes.products,
+  ),
 ];
 
 /// Adaptive shell that hosts primary navigation:
@@ -91,6 +98,8 @@ class _HomeShellViewState extends State<HomeShellView> {
         return const AllPaymentsView();
       case 4:
         return const SettingsView();
+      case 5:
+        return const ProductsView();
       default:
         return const HomeOverviewView();
     }

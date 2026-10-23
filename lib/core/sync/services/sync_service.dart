@@ -5,6 +5,7 @@ import '../../database/database_impl.dart';
 import '../../network/connectivity_service.dart';
 import '../../services/supabase_service.dart';
 import '../models/sync_operation.dart';
+import '../../services/account_access_service.dart';
 
 class SyncService extends GetxService {
   static const ledgerCloudEnabled = bool.fromEnvironment(
@@ -54,6 +55,10 @@ class SyncService extends GetxService {
       );
       return false;
     }
+    if (!Get.isRegistered<AccountAccessService>() ||
+        !AccountAccessService.to.cloudEnabled) {
+      return false;
+    }
     if (summary.value.isSyncing) return false;
 
     summary.value = SyncSummary(
@@ -95,7 +100,11 @@ class SyncService extends GetxService {
 
   /// Pushes pending outbox mutations to the cloud idempotently.
   Future<bool> pushPendingOutbox({int batchSize = 50}) async {
-    if (!ledgerCloudEnabled) return false;
+    if (!ledgerCloudEnabled ||
+        !Get.isRegistered<AccountAccessService>() ||
+        !AccountAccessService.to.cloudEnabled) {
+      return false;
+    }
     final rawRows = await _dao.getPendingOutbox(limit: batchSize);
     if (rawRows.isEmpty) return true;
 
@@ -176,7 +185,11 @@ class SyncService extends GetxService {
 
   /// Pulls remote delta updates after last recorded cursor.
   Future<bool> pullRemoteChanges() async {
-    if (!ledgerCloudEnabled) return false;
+    if (!ledgerCloudEnabled ||
+        !Get.isRegistered<AccountAccessService>() ||
+        !AccountAccessService.to.cloudEnabled) {
+      return false;
+    }
     final supa = Get.isRegistered<SupabaseService>()
         ? SupabaseService.to
         : null;

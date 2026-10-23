@@ -17,6 +17,7 @@ import 'package:elnota/core/database/app_database.dart';
 import 'package:elnota/core/database/database_impl.dart';
 import 'package:elnota/features/customers/views/customers_list_view.dart';
 import 'package:elnota/features/customers/views/customer_detail_view.dart';
+import 'package:elnota/features/customers/views/customer_form_view.dart';
 
 class _Dao implements AppDao {
   final date = DateTime(2026, 10, 22);
@@ -94,9 +95,29 @@ class _Dao implements AppDao {
   @override
   Stream<List<Map<String, dynamic>>> watchInvoiceTerms() => Stream.value([]);
   @override
-  Stream<List<LedgerEntryRow>> watchCustomerLedger(String customerId) => Stream.value([
-    for (final item in [(5, 'invoice_charge', 50000), (8, 'payment_receipt', -100000), (12, 'invoice_charge', 120000), (15, 'payment_receipt', -50000), (18, 'invoice_charge', 80000), (19, 'payment_receipt', -50000), (21, 'payment_receipt', -30000), (22, 'invoice_charge', 100000)]) LedgerEntryRow(id: '${item.$1}', workspaceId: 'default', customerId: customerId, sourceId: 'REF-${item.$1}', eventType: item.$2, amountMinor: item.$3, occurredAt: DateTime(2026, 10, item.$1), createdAt: DateTime(2026, 10, item.$1)),
-  ]);
+  Stream<List<LedgerEntryRow>> watchCustomerLedger(String customerId) =>
+      Stream.value([
+        for (final item in [
+          (5, 'invoice_charge', 50000),
+          (8, 'payment_receipt', -100000),
+          (12, 'invoice_charge', 120000),
+          (15, 'payment_receipt', -50000),
+          (18, 'invoice_charge', 80000),
+          (19, 'payment_receipt', -50000),
+          (21, 'payment_receipt', -30000),
+          (22, 'invoice_charge', 100000),
+        ])
+          LedgerEntryRow(
+            id: '${item.$1}',
+            workspaceId: 'default',
+            customerId: customerId,
+            sourceId: 'REF-${item.$1}',
+            eventType: item.$2,
+            amountMinor: item.$3,
+            occurredAt: DateTime(2026, 10, item.$1),
+            createdAt: DateTime(2026, 10, item.$1),
+          ),
+      ]);
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -147,6 +168,7 @@ void main() {
       'invoice-form',
       'payment-form',
       'settings',
+      'customer-form',
     ]) {
       testWidgets('$screen RTL at $width pixels', (tester) async {
         tester.view.physicalSize = Size(width, 1100);
@@ -162,6 +184,8 @@ void main() {
                   ? const HomeOverviewView()
                   : screen == 'invoices'
                   ? const AllInvoicesView()
+                  : screen == 'customer-form'
+                  ? const CustomerFormView()
                   : screen == 'settings'
                   ? const SettingsView()
                   : const CustomersListView(),

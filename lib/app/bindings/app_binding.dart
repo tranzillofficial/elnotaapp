@@ -7,6 +7,8 @@ import '../../core/services/supabase_service.dart';
 import '../../core/services/theme_service.dart';
 import '../../core/sync/services/sync_service.dart';
 import '../../features/auth/services/auth_service.dart';
+import '../../core/services/account_access_service.dart';
+import '../../core/services/daily_backup_service.dart';
 
 /// Root application binding.
 /// Core services are registered in [initServices] before [runApp].
@@ -33,6 +35,12 @@ class AppBinding extends Bindings {
     }
     if (!Get.isRegistered<SyncService>()) {
       Get.put<SyncService>(SyncService(), permanent: true);
+    }
+    if (!Get.isRegistered<AccountAccessService>()) {
+      Get.put(AccountAccessService(), permanent: true);
+    }
+    if (!Get.isRegistered<DailyBackupService>()) {
+      Get.put(DailyBackupService(), permanent: true);
     }
   }
 }

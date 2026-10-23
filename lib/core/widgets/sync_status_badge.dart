@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'app_toast.dart';
 import '../network/connectivity_service.dart';
 import '../sync/services/sync_service.dart';
 
@@ -62,12 +63,7 @@ class SyncStatusBadge extends StatelessWidget {
         onPressed: () async {
           final ok = await sync.syncNow();
           if (ok) {
-            Get.snackbar(
-              'status_synced'.tr,
-              'action_refresh'.tr,
-              snackPosition: SnackPosition.BOTTOM,
-              duration: const Duration(seconds: 2),
-            );
+            AppToast.success('action_refresh'.tr, title: 'status_synced'.tr);
           }
         },
       );

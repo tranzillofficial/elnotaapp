@@ -167,6 +167,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       'السحابة حتى',
                       'الطباعة',
                       'الإجراءات',
+                      'استثناء المنتجات',
                     ],
                     rows: accounts.map((a) {
                       final active =
@@ -221,6 +222,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   }
                                 },
                           child: const Text('تغيير الطباعة'),
+                        ),
+                        TextButton(
+                          onPressed:
+                              !AdminRepository.writesEnabled || ctrl.busy.value
+                              ? null
+                              : () async {
+                                  final enabled = a['catalog_enabled'] != true;
+                                  if (await confirm(
+                                    'صلاحية المنتجات',
+                                    '${enabled ? 'تفعيل' : 'إيقاف'} استثناء المنتجات لهذا الحساب بدون منح كلاود؟',
+                                  )) {
+                                    await ctrl.changeCatalog(
+                                      a['user_id'] as String,
+                                      enabled,
+                                    );
+                                  }
+                                },
+                          child: Text(
+                            a['catalog_enabled'] == true
+                                ? 'إيقاف الاستثناء'
+                                : 'تفعيل المنتجات',
+                          ),
                         ),
                       ];
                     }).toList(),

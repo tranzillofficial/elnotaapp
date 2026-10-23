@@ -39,7 +39,16 @@ class AppPages {
       page: () => const AdminDashboardView(),
     ),
     // ── Main shell ──────────────────────────────────────────────────────────
-    GetPage(name: AppRoutes.home, page: () => const HomeShellView()),
+    GetPage(
+      name: AppRoutes.home,
+      middlewares: [WebSessionGuard()],
+      page: () => const HomeShellView(),
+    ),
+    GetPage(
+      name: AppRoutes.products,
+      middlewares: [WebSessionGuard()],
+      page: () => const HomeShellView(initialIndex: 5),
+    ),
 
     // ── Settings ────────────────────────────────────────────────────────────
     GetPage(
@@ -63,6 +72,8 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.customerCreate,
+      opaque: false,
+      transition: Transition.fadeIn,
       middlewares: [WebSessionGuard()],
       page: () => const CustomerFormView(),
     ),
@@ -126,7 +137,7 @@ class WebSessionGuard extends GetMiddleware {
     if (kIsWeb &&
         (!Get.isRegistered<SupabaseService>() ||
             SupabaseService.to.client?.auth.currentSession == null)) {
-      return const RouteSettings(name: AppRoutes.deviceLogin);
+      return const RouteSettings(name: AppRoutes.login);
     }
     return null;
   }

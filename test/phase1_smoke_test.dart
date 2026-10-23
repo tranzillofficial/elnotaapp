@@ -58,8 +58,8 @@ void main() {
   });
 
   group('Phase 1 — Constants', () {
-    test('dbVersion is 2', () {
-      expect(AppConstants.dbVersion, equals(2));
+    test('dbVersion is 3', () {
+      expect(AppConstants.dbVersion, equals(3));
     });
 
     test('minorUnitFactor is 100', () {

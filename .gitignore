@@ -58,3 +58,4 @@ app.*.map.json
 **/*.tsbuildinfo
 **/.env.local
 **/.env.*.local
+/supabase/.temp/

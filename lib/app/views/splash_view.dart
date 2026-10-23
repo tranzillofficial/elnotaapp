@@ -48,7 +48,7 @@ class _SplashViewState extends State<SplashView>
             Get.isRegistered<SupabaseService>() &&
             SupabaseService.to.client?.auth.currentSession != null;
         Get.offAllNamed(
-          kIsWeb && !loggedIn ? AppRoutes.deviceLogin : AppRoutes.home,
+          kIsWeb && !loggedIn ? AppRoutes.login : AppRoutes.home,
         );
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => DeviceLinkBridge.initialize(),

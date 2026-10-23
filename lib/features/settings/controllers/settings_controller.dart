@@ -1,4 +1,5 @@
 import '../../../core/services/business_profile.dart';
+import '../../../core/widgets/app_toast.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -63,12 +64,12 @@ class SettingsController extends GetxController {
     if (files.isEmpty) return;
     final length = await files.single.length();
     if (length != null && length > 2 * 1024 * 1024) {
-      Get.snackbar('الشعار', 'اختر صورة أصغر من 2 ميجابايت');
+      AppToast.error('اختر صورة أصغر من 2 ميجابايت', title: 'الشعار');
       return;
     }
     final bytes = await files.single.readAsBytes();
     if (bytes.length > 2 * 1024 * 1024) {
-      Get.snackbar('الشعار', 'اختر صورة أصغر من 2 ميجابايت');
+      AppToast.error('اختر صورة أصغر من 2 ميجابايت', title: 'الشعار');
       return;
     }
     logo.value = base64Encode(bytes);
@@ -77,7 +78,7 @@ class SettingsController extends GetxController {
   Future<bool> save() async {
     if (saving.value) return false;
     if (businessName.text.trim().isEmpty) {
-      Get.snackbar('بيانات النشاط', 'اكتب اسم النشاط');
+      AppToast.error('اكتب اسم النشاط', title: 'بيانات النشاط');
       return false;
     }
     saving.value = true;

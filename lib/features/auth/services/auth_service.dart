@@ -76,15 +76,6 @@ class AuthService extends GetxService {
           await acceptServerSession();
           return true;
         }
-      } else if (!kIsWeb) {
-        // Local mode fallback
-        currentSession.value = UserSession(
-          userId: 'local_${email.hashCode}',
-          email: email,
-          workspaceId: 'default',
-          workspaceName: 'المتجر الرئيسي',
-        );
-        return true;
       }
       return false;
     } catch (_) {
@@ -114,14 +105,6 @@ class AuthService extends GetxService {
           await acceptServerSession();
           return true;
         }
-      } else if (!kIsWeb) {
-        currentSession.value = UserSession(
-          userId: 'local_${email.hashCode}',
-          email: email,
-          workspaceId: 'default',
-          workspaceName: storeName,
-        );
-        return true;
       }
       return false;
     } catch (_) {

@@ -9,6 +9,8 @@ The legacy production database stores ledger JSON documents. The new local
 Flutter model is relational. These are NOT interchangeable. For that reason:
 - `ENABLE_RELATIONAL_SYNC` defaults to false, including direct push/pull calls.
 - `ENABLE_ADMIN_WRITES` defaults to false. The new admin dashboard is read-only.
+- `ENABLE_V2_CLOUD_BACKUP` defaults to false. The new backup table/RPC and
+  catalog override migration are staged files only, never applied to production.
 - No startup job applies SQL files from this repository.
 - Do not run `db_structure/supabase_migration_relational.sql` on the shared live
   project. It remains a reference proposal, not a release instruction.

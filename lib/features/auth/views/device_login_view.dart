@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_toast.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -253,7 +254,7 @@ class _DeviceApprovalViewState extends State<DeviceApprovalView> {
       });
       if (mounted) {
         Get.back();
-        Get.snackbar('ربط الجهاز', 'تمت الموافقة على دخول المتصفح');
+        AppToast.success('تمت الموافقة على دخول المتصفح', title: 'ربط الجهاز');
       }
     } catch (_) {
       if (mounted) {

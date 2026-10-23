@@ -308,6 +308,7 @@ abstract class AppTheme {
 
       // ── SnackBar ─────────────────────────────────────────────────────────────
       snackBarTheme: SnackBarThemeData(
+        width: 440,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         contentTextStyle: AppTextStyles.body.copyWith(color: Colors.white),

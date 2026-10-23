@@ -95,3 +95,14 @@ admin dashboard, QR-login preparation and download/landing integration artifacts
 inside the NEW elnotaapp repository. This supersedes the stale proposed-phase
 header only for that requested scope. It does not authorize changing the old
 elnota repository or deploying migrations to the shared production database.
+
+## Catalog and subscription clarification approved 2026-10-23
+Add categorized products, barcode/name/category search, optional compressed WebP
+images, customer form redesign and bounded desktop toasts. Basic accounts keep
+independent device databases. Active cloud accounts may sync/back up; a separate
+admin catalog override grants products only, never cloud access. Web supports
+password login and optional QR; mobile settings include an in-app scanner.
+The user approved mobile_scanner and imcodec (instead of image, which conflicts
+with the existing Excel dependency). No other package upgrade was authorized.
+Live schema changes, legacy ledger conversion and customer migration remain
+outside this local implementation and require isolated staging verification.

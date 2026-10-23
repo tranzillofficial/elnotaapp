@@ -100,3 +100,11 @@ Settings persist business/printing preferences; printer selection, paper width,
 logo and business details are used for invoice PDFs. Unimplemented app lock,
 notifications, backup restore and scheduled device backups are visibly inactive;
 no switch falsely claims those services are running.
+
+Products use the same green sidebar, compact bordered panels and responsive
+cards. Search matches literal barcode, product name or category name; category
+chips further filter results. Category administration supports add/rename/archive.
+Product forms and customer creation/editing use the shared centered form frame.
+Image selection compresses JPG/PNG/WebP to WebP (960px maximum, 512KiB maximum).
+Non-entitled accounts see a locked catalog with refresh-access action.
+Desktop GetX toasts and Material snackbars have maximum/target width 440px.

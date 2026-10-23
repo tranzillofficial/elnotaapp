@@ -10,7 +10,7 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // ── Database ───────────────────────────────────────────────────────────────
-  static const int dbVersion = 2;
+  static const int dbVersion = 3;
   static const String dbFileName = 'elnota.db';
 
   // ── GetStorage keys ────────────────────────────────────────────────────────

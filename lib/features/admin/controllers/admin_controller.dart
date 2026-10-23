@@ -49,6 +49,8 @@ class AdminController extends GetxController {
       _write(() => gateway.review(id, approve));
   Future<bool> changePrinting(String id, bool enabled) =>
       _write(() => gateway.setPrinting(id, enabled));
+  Future<bool> changeCatalog(String id, bool enabled) =>
+      _write(() => gateway.setCatalog(id, enabled));
   Future<bool> _write(Future<void> Function() action) async {
     if (busy.value || !allowed.value || !AdminRepository.writesEnabled) {
       return false;

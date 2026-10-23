@@ -93,3 +93,16 @@ payment and duplicate receipts remain idempotent.
 
 This is a LOCAL migration only. No production Supabase migration was run. Do not
 apply relational proposal SQL to the legacy JSON production database.
+
+## Local version 3: catalog
+Additive `product_categories` and `catalog_products` tables, scoped by workspace
+inside each account-specific database file. Active category names and barcodes
+are unique per workspace; barcode values stay text, preserving leading zeroes.
+Products reference a category and store exact integer prices, optional WebP
+base64 (at most 512 KiB decoded) and description. Archiving retains rows and
+outbox tombstones; a populated category cannot be archived. Each mutation and
+its outbox entry are atomic. Backups include both tables. No existing ledger
+table or value is changed. Catalog streams read the persistent local cache.
+
+The staged SQL for feature overrides and v2 device backups is NOT applied.
+Its new tables never overwrite legacy `elnota_cloud` or production backups.

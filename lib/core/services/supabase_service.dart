@@ -9,13 +9,17 @@ class SupabaseService extends GetxService {
   bool _isInitialized = false;
 
   bool get isInitialized => _isInitialized;
-  SupabaseClient? get client => _isInitialized ? Supabase.instance.client : null;
+  SupabaseClient? get client =>
+      _isInitialized ? Supabase.instance.client : null;
 
   static const String _keySession = 'supabase_session';
 
   Future<void> init({String? url, String? anonKey}) async {
     // Only initialize if non-empty valid URL is passed
-    if (url != null && url.isNotEmpty && anonKey != null && anonKey.isNotEmpty) {
+    if (url != null &&
+        url.isNotEmpty &&
+        anonKey != null &&
+        anonKey.isNotEmpty) {
       try {
         await Supabase.initialize(
           url: url,

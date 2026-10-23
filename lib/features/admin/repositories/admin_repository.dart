@@ -8,6 +8,7 @@ abstract interface class AdminGateway {
   Future<List<Map<String, dynamic>>> requests(int page);
   Future<void> review(String requestId, bool approve);
   Future<void> setPrinting(String userId, bool enabled);
+  Future<void> setCatalog(String userId, bool enabled);
 }
 
 class AdminRepository implements AdminGateway {
@@ -42,7 +43,23 @@ class AdminRepository implements AdminGateway {
         )
         .order('created_at', ascending: false)
         .range(page * 50, page * 50 + 49);
-    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+    final result = rows.map((r) => Map<String, dynamic>.from(r)).toList();
+    try {
+      final overrides = await client
+          .from('elnota_feature_access')
+          .select('user_id,catalog_enabled')
+          .inFilter('user_id', result.map((r) => r['user_id']).toList());
+      for (final row in result) {
+        row['catalog_enabled'] =
+            overrides
+                .where((f) => f['user_id'] == row['user_id'])
+                .firstOrNull?['catalog_enabled'] ==
+            true;
+      }
+    } catch (_) {
+      /* Feature contract is staged, not deployed to legacy production. */
+    }
+    return result;
   }
 
   @override
@@ -71,6 +88,15 @@ class AdminRepository implements AdminGateway {
     final client = await _authorized(write: true);
     await client.rpc(
       'elnota_set_printing',
+      params: {'target_user': userId, 'enabled': enabled},
+    );
+  }
+
+  @override
+  Future<void> setCatalog(String userId, bool enabled) async {
+    final client = await _authorized(write: true);
+    await client.rpc(
+      'elnota_set_catalog_access',
       params: {'target_user': userId, 'enabled': enabled},
     );
   }
