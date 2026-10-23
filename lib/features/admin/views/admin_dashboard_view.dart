@@ -1,3 +1,4 @@
+import 'release_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/design_widgets.dart';
@@ -105,6 +106,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               ),
             ),
           ),
+          const SizedBox(height: 18),
+          const ReleaseManager(),
           const SizedBox(height: 18),
           DesignStats(
             children: [

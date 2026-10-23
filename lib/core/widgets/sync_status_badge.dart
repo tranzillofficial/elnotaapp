@@ -11,11 +11,12 @@ class SyncStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (AppRuntime.demo)
+    if (AppRuntime.demo) {
       return const Tooltip(
         message: 'ديمو — البيانات محلية فقط',
         child: Icon(Icons.science_outlined, color: Color(0xFF00845B)),
       );
+    }
     if (!Get.isRegistered<SyncService>()) {
       return const SizedBox.shrink();
     }

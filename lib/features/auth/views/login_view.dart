@@ -1,4 +1,4 @@
-import '../../../core/utils/app_routes.dart';
+import 'device_login_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -58,7 +58,19 @@ class LoginView extends GetView<AuthController> {
                   const SizedBox(height: 32),
 
                   OutlinedButton.icon(
-                    onPressed: () => Get.toNamed(AppRoutes.deviceLogin),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => Dialog(
+                        clipBehavior: Clip.antiAlias,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 520,
+                            maxHeight: 700,
+                          ),
+                          child: const DeviceLoginView(dialog: true),
+                        ),
+                      ),
+                    ),
                     icon: const Icon(Icons.qr_code_2),
                     label: const Text('الدخول من تطبيق الموبايل'),
                   ),

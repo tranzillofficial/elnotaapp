@@ -1,7 +1,6 @@
-export const metadata = { title: 'افتح النوتة Web | النوتة' };
-
+import { redirect } from 'next/navigation';
 export default function Web() {
-  const webUrl = process.env.FLUTTER_WEB_URL;
-  const configured = webUrl && /^https:\/\//.test(webUrl);
-  return <main className="web-page wrap"><a className="text-link" href="/">→ العودة للنوتة</a><div className="web-intro"><span className="eyebrow">مساحة شغلك على المتصفح</span><h1>النوتة Web</h1><p>سجّل الدخول ببريدك وكلمة المرور، أو اختار الدخول السريع بالـQR عند تفعيل ربط الأجهزة.</p></div>{configured ? <section className="web-status"><span className="status-dot"/><h2>نسخة الويب التجريبية جاهزة للفتح</h2><p>تفتح صفحة الدخول في التطبيق. مزامنة بيانات النسخة القديمة لم تُفعّل؛ البيانات التي تضيفها هنا تظل على هذا المتصفح حاليًا.</p><a className="button" href={webUrl}>افتح تسجيل الدخول ←</a></section> : <section className="web-status"><span className="status-dot pending-dot"/><h2>ربط بيئة الاختبار قيد الإعداد</h2><p>اللاندنج جاهزة للمعاينة. اختبار الدخول الفعلي يحتاج نسخة Flutter مرتبطة بمشروع Supabase تجريبي وتطبيق موبايل على نفس البيئة.</p><p>لا يتم استخدام حسابات العملاء أو بيانات الموقع القديم في هذه المعاينة.</p><a className="button secondary" href="/#how">شوف خطوات الربط</a></section>}<div className="web-checklist"><h2>قبل الربط</h2><p>تقدر تدخل بالبريد وكلمة المرور مباشرة.</p><p>الـQR خيار إضافي يحتاج خدمة ربط الأجهزة ونسخة موبايل متوافقة.</p><p>للتجربة بدون تسجيل، افتح حساب الديمو من الصفحة الرئيسية.</p></div></main>;
+ const url = process.env.FLUTTER_WEB_URL;
+ if (url && /^https:\/\//.test(url)) redirect(url);
+ return <main className="web-page wrap"><h1>تسجيل الدخول</h1><p>نسخة الويب قيد الإعداد.</p></main>;
 }

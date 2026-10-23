@@ -13,7 +13,8 @@ import '../services/device_login_service.dart';
 import '../services/auth_service.dart';
 
 class DeviceLoginView extends StatefulWidget {
-  const DeviceLoginView({super.key});
+  const DeviceLoginView({super.key, this.dialog = false});
+  final bool dialog;
   @override
   State<DeviceLoginView> createState() => _DeviceLoginViewState();
 }
@@ -177,7 +178,13 @@ class _DeviceLoginViewState extends State<DeviceLoginView> {
                       label: const Text('رمز جديد'),
                     ),
                     TextButton(
-                      onPressed: () => Get.offAllNamed(AppRoutes.login),
+                      onPressed: () {
+                        if (widget.dialog) {
+                          Navigator.of(context).pop();
+                        } else {
+                          Get.offAllNamed(AppRoutes.login);
+                        }
+                      },
                       child: const Text('الدخول بالبريد وكلمة المرور'),
                     ),
                   ],

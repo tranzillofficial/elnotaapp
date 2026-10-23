@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 import { sha256, randomSecret, uuidPattern, isExpired } from './protocol.ts';
 
-const appOrigin = Deno.env.get('ALLOWED_APP_ORIGIN') ?? 'https://app.elnota.shop';
+const appOrigin = Deno.env.get('ALLOWED_APP_ORIGIN') ?? 'https://elnotaapp-web-preview.vercel.app';
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } });
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get('origin');
