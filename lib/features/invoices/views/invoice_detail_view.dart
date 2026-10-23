@@ -23,7 +23,7 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
   void initState() {
     super.initState();
     final args = Get.arguments as Map<String, dynamic>?;
-    invoiceId = args?['invoice_id'] as String? ?? '';
+    invoiceId = (args?['invoice_id'] ?? args?['id']) as String? ?? '';
     _repo = Get.isRegistered<InvoiceRepository>()
         ? Get.find<InvoiceRepository>()
         : InvoiceRepository();
@@ -61,9 +61,7 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
     if (inv == null) {
       return Scaffold(
         appBar: AppBar(title: Text('invoice_title'.tr)),
-        body: Center(
-          child: Text('status_empty'.tr),
-        ),
+        body: Center(child: Text('status_empty'.tr)),
       );
     }
 
@@ -108,8 +106,12 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
           children: [
             Card(
               elevation: 0,
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -117,11 +119,13 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('invoice_status_posted'.tr,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            )),
+                        Text(
+                          'invoice_status_posted'.tr,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         Chip(
                           label: Text(inv.status.tr),
                           backgroundColor: theme.colorScheme.primaryContainer,
@@ -132,10 +136,12 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('invoice_date'.tr,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            )),
+                        Text(
+                          'invoice_date'.tr,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                         Text(
                           '${inv.invoiceDate.year}-${inv.invoiceDate.month.toString().padLeft(2, '0')}-${inv.invoiceDate.day.toString().padLeft(2, '0')}',
                           style: theme.textTheme.bodyMedium?.copyWith(
@@ -163,7 +169,8 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _items.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, idx) {
                     final item = _items[idx];
                     return ListTile(
@@ -196,10 +203,12 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('invoice_notes'.tr,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          )),
+                      Text(
+                        'invoice_notes'.tr,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(inv.notes!),
                     ],
@@ -212,8 +221,12 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
             // Financial summary
             Card(
               elevation: 0,
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -230,10 +243,14 @@ class _InvoiceDetailViewState extends State<InvoiceDetailView> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('invoice_discount'.tr,
-                              style: const TextStyle(color: Colors.green)),
-                          Text('- ${MoneyUtils.formatMinor(inv.discountMinor)}',
-                              style: const TextStyle(color: Colors.green)),
+                          Text(
+                            'invoice_discount'.tr,
+                            style: const TextStyle(color: Colors.green),
+                          ),
+                          Text(
+                            '- ${MoneyUtils.formatMinor(inv.discountMinor)}',
+                            style: const TextStyle(color: Colors.green),
+                          ),
                         ],
                       ),
                     ],

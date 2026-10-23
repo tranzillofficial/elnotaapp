@@ -73,3 +73,30 @@ Loading, empty, offline, syncing, synced, conflict, permission denied, stale ses
 - Use `Obx()` only around reactive subtrees; avoid rebuilding full screens when a single number changes.
 - Keep destructive actions away from frequent primary actions.
 - Avoid user-visible AI branding or generic dashboard illustrations unless explicitly required.
+
+## Approved reference screens (October 2026)
+The supplied dashboard, customers table, and customer account images define the
+current light desktop appearance: white canvas, green `#00845B` navigation rail,
+navy `#101326` text, secondary `#59698D`, and borders `#E4E9F2`.
+The desktop rail is 92px wide on the leading RTL edge. Content uses bordered
+panels, compact tables, green receipt charts, and responsive summary cards.
+On narrow screens, panels stack and wide tables scroll horizontally.
+
+Customer balances come from existing ledger projections. Invoice terms and
+FIFO installment schedules are now implemented locally; see BUSINESS_RULES.md.
+Statements use the immutable ledger and preserve negative customer credits.
+Cloud ledger integration remains disabled to protect the existing production
+JSON document contract.
+
+## New reference screens
+Invoice management includes its own installment schedule tab; there is no
+separate installment destination in the sidebar. Invoice and payment creation
+use centered responsive modals over the current screen. Statements have period
+controls, opening/debit/credit/closing cards and a running-balance ledger table.
+Settings use paired desktop panels and stacked mobile panels.
+
+The bundled Cairo font is loaded locally without changing package manifests.
+Settings persist business/printing preferences; printer selection, paper width,
+logo and business details are used for invoice PDFs. Unimplemented app lock,
+notifications, backup restore and scheduled device backups are visibly inactive;
+no switch falsely claims those services are running.

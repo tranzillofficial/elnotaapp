@@ -21,6 +21,10 @@ Future<void> main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
+  final arabicFont = FontLoader('Cairo')
+    ..addFont(rootBundle.load('assets/fonts/Cairo.ttf'));
+  await arabicFont.load();
+
   // Boot order: storage → services → app.
   await initServices();
 
@@ -62,7 +66,8 @@ class ElNotaApp extends StatelessWidget {
 
       // ── Builder: apply locale-driven text direction globally ───────────────
       builder: (context, child) {
-        final isArabic = LocaleService.to.locale.languageCode == AppConstants.localeAr;
+        final isArabic =
+            LocaleService.to.locale.languageCode == AppConstants.localeAr;
         return Directionality(
           textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
           child: child ?? const SizedBox.shrink(),

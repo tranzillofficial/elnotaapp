@@ -1,300 +1,532 @@
+import '../../admin/repositories/admin_repository.dart';
+import '../../auth/views/device_login_view.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/network/connectivity_service.dart';
-import '../../../core/services/locale_service.dart';
+import 'package:printing/printing.dart';
+import '../../../core/widgets/design_widgets.dart';
+import '../../../core/widgets/accounting_form_frame.dart';
 import '../../../core/services/theme_service.dart';
+import '../../../core/services/pdf_service.dart';
+import '../../../core/services/backup_service.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/sync/services/sync_service.dart';
-import '../../../core/utils/app_constants.dart';
 import '../../../core/utils/app_routes.dart';
-import '../../../core/widgets/app_widgets.dart';
+import '../../../core/utils/app_constants.dart';
 import '../../auth/services/auth_service.dart';
+import '../../invoices/models/invoice_model.dart';
 import '../controllers/settings_controller.dart';
 
-/// Settings screen.
-/// Groups: Appearance (theme + language), About.
-/// Phase 3 will add Account, Business, Backup & Sync, and Security groups.
-class SettingsView extends GetView<SettingsController> {
+class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('settings_title'.tr)),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [
-          // ── Appearance ─────────────────────────────────────────────────────
-          SectionHeader(title: 'settings_appearance'.tr),
-          _ThemeSelector(),
-          const SizedBox(height: 4),
-          _LanguageSelector(),
-
-          // ── Cloud & Sync ───────────────────────────────────────────────────
-          const SectionHeader(title: 'السحابة والمزامنة'),
-          const _SyncSettingsCard(),
-
-          // ── About ──────────────────────────────────────────────────────────
-          SectionHeader(title: 'settings_about'.tr),
-          _AboutTile(),
-        ],
-      ),
-    );
-  }
+  State<SettingsView> createState() => _SettingsViewState();
 }
 
-// ─── Theme selector ───────────────────────────────────────────────────────────
-
-class _ThemeSelector extends StatelessWidget {
+class _SettingsViewState extends State<SettingsView> {
+  late final SettingsController ctrl;
+  late final adminAccess = AdminRepository().isAdmin().catchError((_) => false);
   @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final svc = ThemeService.to;
-      return Card(
-        child: RadioGroup<String>(
-          groupValue: svc.mode.name,
-          onChanged: (val) {
-            if (val == 'light') svc.setLight();
-            if (val == 'dark') svc.setDark();
-            if (val == 'system') svc.setSystem();
-          },
-          child: Column(
-            children: [
-              _SettingsTile(
-                icon: Icons.light_mode_outlined,
-                title: 'settings_theme_light'.tr,
-                trailing: const Radio<String>(value: 'light'),
-                onTap: svc.setLight,
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                title: 'settings_theme_dark'.tr,
-                trailing: const Radio<String>(value: 'dark'),
-                onTap: svc.setDark,
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.brightness_auto_outlined,
-                title: 'settings_theme_system'.tr,
-                trailing: const Radio<String>(value: 'system'),
-                onTap: svc.setSystem,
-              ),
-            ],
+  void initState() {
+    super.initState();
+    if (!Get.isRegistered<SettingsController>()) Get.put(SettingsController());
+    ctrl = Get.find<SettingsController>();
+  }
+
+  Future<void> save() async {
+    try {
+      if (await ctrl.save() && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حفظ التغييرات على هذا الجهاز')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تعذر حفظ الإعدادات')));
+      }
+    }
+  }
+
+  Future<void> preview(bool print) async {
+    final bytes = await PdfService.generateInvoicePdf(
+      invoice: InvoiceModel(
+        id: 'PREVIEW',
+        customerId: '',
+        status: 'preview',
+        totalMinor: 10000,
+        discountMinor: 0,
+        isManualAmount: true,
+        invoiceDate: DateTime.now(),
+        notes: 'معاينة تجريبية — لا تُسجّل في الحسابات',
+      ),
+      customerName: 'اختبار طباعة',
+    );
+    if (print) {
+      await PdfService.printDocument(bytes, name: 'ElNota Print Test');
+    } else if (mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          child: SizedBox(
+            width: 650,
+            height: 750,
+            child: PdfPreview(
+              build: (_) async => bytes,
+              canChangePageFormat: false,
+              canChangeOrientation: false,
+            ),
           ),
         ),
       );
-    });
+    }
   }
-}
-
-// ─── Language selector ────────────────────────────────────────────────────────
-
-class _LanguageSelector extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final svc = LocaleService.to;
-      return Card(
-        child: RadioGroup<String>(
-          groupValue: svc.locale.languageCode,
-          onChanged: (val) {
-            if (val == AppConstants.localeAr) svc.setArabic();
-            if (val == AppConstants.localeEn) svc.setEnglish();
-          },
-          child: Column(
-            children: [
-              _SettingsTile(
-                icon: Icons.language_rounded,
-                title: 'العربية',
-                trailing: const Radio<String>(value: AppConstants.localeAr),
-                onTap: svc.setArabic,
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.language_rounded,
-                title: 'English',
-                trailing: const Radio<String>(value: AppConstants.localeEn),
-                onTap: svc.setEnglish,
-              ),
-            ],
-          ),
-        ),
-      );
-    });
-  }
-}
-
-// ─── About tile ───────────────────────────────────────────────────────────────
-
-class _AboutTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: _SettingsTile(
-        icon: Icons.info_outline_rounded,
-        title: AppConstants.appName,
-        subtitle:
-            '${'settings_version'.tr} ${AppConstants.appVersion}',
-        onTap: () {},
-      ),
-    );
-  }
-}
-
-// ─── Reusable tile ────────────────────────────────────────────────────────────
-
-class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, size: 20),
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      trailing: trailing,
-      onTap: onTap,
-      dense: true,
-    );
-  }
-}
-
-class _SyncSettingsCard extends StatelessWidget {
-  const _SyncSettingsCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final auth = Get.isRegistered<AuthService>() ? AuthService.to : null;
     final sync = Get.isRegistered<SyncService>() ? SyncService.to : null;
-    final conn = Get.isRegistered<ConnectivityService>()
+    final connectivity = Get.isRegistered<ConnectivityService>()
         ? ConnectivityService.to
         : null;
-
-    return Card(
+    final business = DesignPanel(
+      title: 'بيانات النشاط',
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // User / Workspace row
-            Obx(() {
-              final user = auth?.currentSession.value;
-              return Row(
+            Obx(
+              () => Wrap(
+                spacing: 18,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Icon(
-                      Icons.storefront_rounded,
-                      color: theme.colorScheme.onPrimaryContainer,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: ctrl.logo.value == null
+                        ? Image.asset(
+                            'assets/images/logo.png',
+                            width: 80,
+                            height: 80,
+                          )
+                        : Image.memory(
+                            base64Decode(ctrl.logo.value!),
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.contain,
+                          ),
+                  ),
+                  const SizedBox(width: 18),
+                  OutlinedButton.icon(
+                    onPressed: ctrl.pickLogo,
+                    icon: const Icon(Icons.image_outlined),
+                    label: const Text('تغيير الشعار'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            FormColumns(
+              children: [
+                LabeledField(
+                  'اسم النشاط',
+                  child: TextField(controller: ctrl.businessName),
+                ),
+                LabeledField(
+                  'رقم الهاتف',
+                  child: TextField(
+                    controller: ctrl.phone,
+                    keyboardType: TextInputType.phone,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            LabeledField('العنوان', child: TextField(controller: ctrl.address)),
+            const SizedBox(height: 14),
+            const Text(
+              'تظهر هذه البيانات على الفواتير المطبوعة من هذا الجهاز.',
+              style: TextStyle(color: designMuted, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+    final printing = DesignPanel(
+      title: 'الطباعة والفواتير',
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Obx(
+              () => LabeledField(
+                'الطابعة الافتراضية',
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey(ctrl.selectedPrinter.value),
+                  initialValue:
+                      ctrl.printers.any(
+                        (p) => p.url == ctrl.selectedPrinter.value,
+                      )
+                      ? ctrl.selectedPrinter.value
+                      : null,
+                  isExpanded: true,
+                  hint: const Text('طابعة النظام'),
+                  items: ctrl.printers
+                      .map(
+                        (p) =>
+                            DropdownMenuItem(value: p.url, child: Text(p.name)),
+                      )
+                      .toList(),
+                  onChanged: (v) => ctrl.selectedPrinter.value = v,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Obx(
+              () => _SettingRow(
+                'مقاس الورق',
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: '80', label: Text('80 مم')),
+                    ButtonSegment(value: '58', label: Text('58 مم')),
+                    ButtonSegment(value: 'A4', label: Text('A4')),
+                  ],
+                  selected: {ctrl.paper.value},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (v) => ctrl.paper.value = v.first,
+                ),
+              ),
+            ),
+            Obx(
+              () => Material(
+                color: Colors.transparent,
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('عرض الشعار على الفاتورة'),
+                  value: ctrl.showLogo.value,
+                  onChanged: (v) => ctrl.showLogo.value = v,
+                ),
+              ),
+            ),
+            const Divider(),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                DesignAction(
+                  'اختبار الطباعة',
+                  Icons.print_outlined,
+                  () => preview(true),
+                ),
+                DesignAction(
+                  'معاينة الفاتورة',
+                  Icons.visibility_outlined,
+                  () => preview(false),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    Widget syncContent() {
+      final summary = sync?.summary.value;
+      final online = connectivity?.isOnline.value ?? false;
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 16,
+              runSpacing: 12,
+              children: [
+                DesignPill(
+                  online ? 'متصل' : 'يعمل محليًا',
+                  color: online ? designGreen : Colors.orange,
+                ),
+                Text('العمليات المعلقة: ${summary?.pendingCount ?? 0}'),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'آخر مزامنة ناجحة: ${summary?.lastSuccessAt == null ? 'لم تتم بعد' : designDate(summary!.lastSuccessAt!)}',
+              style: const TextStyle(color: designMuted),
+            ),
+            const SizedBox(height: 16),
+            const _SettingRow(
+              'المزامنة التلقائية',
+              Text('عند عودة الاتصال', style: TextStyle(color: designMuted)),
+            ),
+            const _SettingRow(
+              'النسخ الاحتياطي اليومي',
+              Text(
+                'غير مفعّل على هذا الجهاز',
+                style: TextStyle(color: designMuted),
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: sync == null || summary?.isSyncing == true
+                  ? null
+                  : () async {
+                      final ok = await sync.syncNow();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ok && sync.summary.value.lastSuccessAt != null
+                                  ? 'اكتملت محاولة المزامنة'
+                                  : 'البيانات محفوظة محليًا؛ لم يتم تأكيد المزامنة',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.sync),
+              label: Text(
+                summary?.isSyncing == true ? 'جارٍ المزامنة…' : 'مزامنة الآن',
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                DesignAction(
+                  'تصدير نسخة محلية',
+                  Icons.download_outlined,
+                  () async {
+                    try {
+                      await BackupService().exportAndShareBackup();
+                    } catch (_) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('تعذر تصدير النسخة')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                const OutlinedButton(
+                  onPressed: null,
+                  child: Text('استيراد نسخة — قيد التجهيز'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    final backups = DesignPanel(
+      title: 'النسخ الاحتياطي والمزامنة',
+      child: sync != null || connectivity != null
+          ? Obx(syncContent)
+          : syncContent(),
+    );
+    final preferences = DesignPanel(
+      title: 'تفضيلات التطبيق',
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            if (Get.isRegistered<ThemeService>())
+              Obx(
+                () => _SettingRow(
+                  'المظهر',
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'light', label: Text('فاتح')),
+                      ButtonSegment(value: 'dark', label: Text('داكن')),
+                      ButtonSegment(value: 'system', label: Text('النظام')),
+                    ],
+                    selected: {ThemeService.to.mode.name},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (v) {
+                      if (v.first == 'light') ctrl.onThemeLightTapped();
+                      if (v.first == 'dark') ctrl.onThemeDarkTapped();
+                      if (v.first == 'system') ctrl.onThemeSystemTapped();
+                    },
+                  ),
+                ),
+              ),
+            const _SettingRow(
+              'قفل التطبيق',
+              Text('غير مفعّل', style: TextStyle(color: designMuted)),
+            ),
+            const _SettingRow(
+              'تنبيهات الأقساط',
+              Text('غير مفعّلة', style: TextStyle(color: designMuted)),
+            ),
+            FutureBuilder<bool>(
+              future: adminAccess,
+              builder: (context, snapshot) => snapshot.data == true
+                  ? TextButton.icon(
+                      onPressed: () => Get.toNamed(AppRoutes.admin),
+                      icon: const Icon(Icons.admin_panel_settings_outlined),
+                      label: const Text('لوحة الإدارة'),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            _SettingRow(
+              'ربط متصفح',
+              TextButton.icon(
+                onPressed: () => Get.to(() => const DeviceApprovalView()),
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('ربط جهاز جديد'),
+              ),
+            ),
+            _SettingRow(
+              'اللغة',
+              TextButton(
+                onPressed: ctrl.onLanguageToggled,
+                child: Text(ctrl.localeLabel),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                Text(
+                  '${AppConstants.appName} · الإصدار ${ctrl.appVersion}',
+                  style: const TextStyle(color: designMuted),
+                ),
+                TextButton.icon(
+                  onPressed: () => Get.toNamed(AppRoutes.login),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('الحساب وتسجيل الدخول'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.all(
+            MediaQuery.sizeOf(context).width < 600 ? 16 : 32,
+          ),
+          children: [
+            DesignHeader(
+              title: 'الإعدادات',
+              subtitle: 'إدارة بيانات نشاطك وتفضيلات التطبيق',
+              actions: [
+                Obx(
+                  () => FilledButton.icon(
+                    onPressed: ctrl.saving.value ? null : save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(
+                      ctrl.saving.value ? 'جارٍ الحفظ…' : 'حفظ التغييرات',
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
+                ),
+              ],
+            ),
+            DesignPanel(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 20,
+                  runSpacing: 12,
+                  children: [
+                    Text(
+                      auth?.currentSession.value?.email ?? 'الحساب المحلي',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const DesignPill('تفضيلات محفوظة محليًا'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, box) => box.maxWidth >= 1100
+                  ? Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          user?.workspaceName ?? 'المتجر الرئيسي',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Column(
+                            children: [
+                              business,
+                              const SizedBox(height: 16),
+                              printing,
+                            ],
                           ),
                         ),
-                        Text(
-                          user?.email ?? 'merchant@elnota.local',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              backups,
+                              const SizedBox(height: 16),
+                              preferences,
+                            ],
                           ),
                         ),
                       ],
+                    )
+                  : Column(
+                      children: [
+                        business,
+                        const SizedBox(height: 16),
+                        printing,
+                        const SizedBox(height: 16),
+                        backups,
+                        const SizedBox(height: 16),
+                        preferences,
+                      ],
                     ),
-                  ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.swap_horiz_rounded),
-                    label: Text('auth_logout'.tr.isNotEmpty ? 'auth_logout'.tr : 'تبديل'),
-                    onPressed: () => Get.toNamed(AppRoutes.login),
-                  ),
-                ],
-              );
-            }),
-            const Divider(height: 24),
-
-            // Sync Status
-            Obx(() {
-              final isOnline = conn?.isOnline.value ?? false;
-              final summary = sync?.summary.value;
-              final pending = summary?.pendingCount ?? 0;
-              final isSyncing = summary?.isSyncing ?? false;
-
-              return Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            isOnline ? Icons.wifi : Icons.wifi_off,
-                            size: 16,
-                            color: isOnline ? Colors.green : Colors.orange,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            isOnline ? 'متصل بالإنترنت' : 'غير متصل (يعمل محليًا)',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                      Text(
-                        pending > 0
-                            ? '$pending قيد المزامنة'
-                            : 'جميع العمليات متزامنة',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: pending > 0 ? Colors.orange[800] : Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: isSyncing
-                        ? null
-                        : () async {
-                            final ok = await sync?.syncNow();
-                            if (ok == true) {
-                              showSuccessSnack('تمت المزامنة بنجاح');
-                            } else {
-                              showErrorSnack('تعذرت المزامنة — تم حفظ العمليات محليًا');
-                            }
-                          },
-                    icon: isSyncing
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.sync_rounded),
-                    label: Text(isSyncing ? 'جارٍ المزامنة…' : 'مزامنة فورية الآن'),
-                  ),
-                ],
-              );
-            }),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _SettingRow extends StatelessWidget {
+  const _SettingRow(this.label, this.control);
+  final String label;
+  final Widget control;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+    ),
+    child: LayoutBuilder(
+      builder: (context, box) => box.maxWidth < 500
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                control,
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                control,
+              ],
+            ),
+    ),
+  );
 }

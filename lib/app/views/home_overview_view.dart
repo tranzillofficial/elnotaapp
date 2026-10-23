@@ -1,447 +1,441 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../core/database/app_database.dart';
-import '../../core/database/database_impl.dart';
-import '../../core/utils/app_routes.dart';
-import '../../core/utils/money_utils.dart';
+import '../../core/widgets/design_widgets.dart';
 import '../../core/widgets/sync_status_badge.dart';
+import '../../core/utils/app_routes.dart';
 
-/// Dashboard / Overview tab for the main navigation shell.
-/// Streams live financial stats and recent activities in real time.
-class HomeOverviewView extends StatelessWidget {
+class HomeOverviewView extends StatefulWidget {
   const HomeOverviewView({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dao = DatabaseService.to.dao;
+  State<HomeOverviewView> createState() => _HomeOverviewViewState();
+}
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'nav_home'.tr,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: SyncStatusBadge(),
-          ),
-        ],
-      ),
-      body: StreamBuilder<WorkspaceStats>(
-        stream: dao.watchWorkspaceStats(),
-        builder: (context, statsSnap) {
-          final stats =
-              statsSnap.data ??
-              const WorkspaceStats(
-                customersCount: 0,
-                invoicesCount: 0,
-                paymentsCount: 0,
-                totalInvoicedMinor: 0,
-                totalCollectedMinor: 0,
-              );
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              // Trigger any background sync if desired
-              await Future.delayed(const Duration(milliseconds: 300));
-            },
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+class _HomeOverviewViewState extends State<HomeOverviewView> {
+  int activityFilter = 0;
+  int chartDays = 7;
+  String query = '';
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: AccountDataBuilder(
+        builder: (context, data) {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final todayCollected = data.payments
+              .where(
+                (p) =>
+                    !p.paymentDate.isBefore(today) &&
+                    p.paymentDate.isBefore(today.add(const Duration(days: 1))),
+              )
+              .fold<int>(0, (sum, p) => sum + p.amountMinor);
+          final collected = data.balances.values.fold<int>(
+            0,
+            (sum, b) => sum + b.totalPaymentsMinor,
+          );
+          final outstanding = data.balances.values.fold<int>(
+            0,
+            (sum, b) => sum + (b.outstandingMinor > 0 ? b.outstandingMinor : 0),
+          );
+          final names = {for (final c in data.customers) c.id: c.name};
+          final activities =
+              [
+                    for (final i in data.invoices)
+                      (
+                        i.customerId,
+                        names[i.customerId] ?? '—',
+                        'فاتورة',
+                        i.invoiceDate,
+                        i.netMinor,
+                        i.id,
+                        i.isPosted ? 'مرحّلة' : 'مسودة',
+                      ),
+                    for (final p in data.payments)
+                      (
+                        p.customerId,
+                        names[p.customerId] ?? '—',
+                        'دفعة نقدية',
+                        p.paymentDate,
+                        p.amountMinor,
+                        p.id,
+                        'مسجلة',
+                      ),
+                  ]
+                  .where(
+                    (a) =>
+                        (activityFilter == 0 ||
+                            activityFilter == 1 && a.$3 == 'فاتورة' ||
+                            activityFilter == 2 && a.$3 != 'فاتورة') &&
+                        (a.$2.contains(query) || a.$6.contains(query)),
+                  )
+                  .toList()
+                ..sort((a, b) => b.$4.compareTo(a.$4));
+          final recent = DesignPanel(
+            title: 'آخر العمليات',
+            action: SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 0, label: Text('الكل')),
+                ButtonSegment(value: 1, label: Text('فواتير')),
+                ButtonSegment(value: 2, label: Text('مدفوعات')),
+              ],
+              selected: {activityFilter},
+              showSelectedIcon: false,
+              onSelectionChanged: (v) =>
+                  setState(() => activityFilter = v.first),
+            ),
+            child: Column(
               children: [
-                // ─── Quick Actions ───────────────────────────────────────────
-                _buildQuickActions(context),
-                const SizedBox(height: 16),
-
-                // ─── Financial KPI Cards ─────────────────────────────────────
-                _buildStatsGrid(context, stats),
-                const SizedBox(height: 24),
-
-                // ─── Recent Activity Section Header ──────────────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'آخر الحركات والعمليات',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'مباشر',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                DesignTable(
+                  minWidth: 650,
+                  rowHeight: 42,
+                  headers: const [
+                    'العميل',
+                    'العملية',
+                    'التاريخ والوقت',
+                    'المبلغ',
+                    'الحالة',
                   ],
+                  rows: activities
+                      .take(6)
+                      .map(
+                        (a) => <Widget>[
+                          InkWell(
+                            onTap: () => openCustomer(a.$1),
+                            child: Text(a.$2),
+                          ),
+                          Text(a.$3),
+                          Text(
+                            designDate(a.$4),
+                            style: const TextStyle(color: designMuted),
+                          ),
+                          Text(designMoney(a.$5)),
+                          DesignPill(
+                            a.$7,
+                            color: a.$3 == 'فاتورة' ? designMuted : designGreen,
+                          ),
+                        ],
+                      )
+                      .toList(),
                 ),
-                const SizedBox(height: 10),
-
-                // ─── Recent Activity Stream ──────────────────────────────────
-                StreamBuilder<List<RecentActivityItem>>(
-                  stream: dao.watchRecentActivities(limit: 10),
-                  builder: (context, activitySnap) {
-                    if (activitySnap.connectionState ==
-                            ConnectionState.waiting &&
-                        !activitySnap.hasData) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator.adaptive(),
-                        ),
-                      );
-                    }
-
-                    final activities = activitySnap.data ?? [];
-                    if (activities.isEmpty) {
-                      return Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            color: theme.colorScheme.outlineVariant,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 32,
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.receipt_long_outlined,
-                                size: 48,
-                                color: theme.colorScheme.outline,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'لا توجد حركات مسجلة حتى الآن',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'قم بإضافة عميل أو إنشاء أول فاتورة للبدء',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: activities.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final act = activities[index];
-                        final isInv = act.isInvoice;
-                        return Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(
-                              color: theme.colorScheme.outlineVariant,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: isInv
-                                  ? theme.colorScheme.primaryContainer
-                                  : Colors.green.withValues(alpha: 0.15),
-                              child: Icon(
-                                isInv
-                                    ? Icons.receipt_outlined
-                                    : Icons.arrow_downward_rounded,
-                                color: isInv
-                                    ? theme.colorScheme.onPrimaryContainer
-                                    : Colors.green,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              act.customerName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${isInv ? 'فاتورة' : 'دفعة نقدية'} • ${act.date.year}-${act.date.month.toString().padLeft(2, '0')}-${act.date.day.toString().padLeft(2, '0')}${act.notes != null ? ' • ${act.notes}' : ''}',
-                              style: theme.textTheme.bodySmall,
-                            ),
-                            trailing: Text(
-                              '${isInv ? '' : '+ '}${MoneyUtils.formatMinor(act.amountMinor)}',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: isInv
-                                    ? theme.colorScheme.onSurface
-                                    : Colors.green,
-                              ),
-                            ),
-                            onTap: () {
-                              if (isInv) {
-                                Get.toNamed(
-                                  AppRoutes.invoiceDetail,
-                                  arguments: {'id': act.id},
-                                );
-                              } else {
-                                Get.toNamed(
-                                  AppRoutes.customerDetail,
-                                  arguments: {'id': act.customerId},
-                                );
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
+                if (activities.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Text('لا توجد عمليات مسجلة'),
+                  ),
               ],
             ),
           );
+          final upcoming = data.dues.where((d) => d.remainingMinor > 0).toList()
+            ..sort((a, b) => a.date.compareTo(b.date));
+          final due = DesignPanel(
+            title: 'أقساط قريبة ومتأخرة',
+            action: TextButton(
+              onPressed: () => Get.toNamed(
+                AppRoutes.invoices,
+                arguments: {'installments': true},
+              ),
+              child: const Text('عرض الكل'),
+            ),
+            child: DesignTable(
+              minWidth: 470,
+              rowHeight: 48,
+              headers: const ['العميل', 'تاريخ الاستحقاق', 'المبلغ', 'الحالة'],
+              rows: upcoming
+                  .take(4)
+                  .map(
+                    (d) => <Widget>[
+                      Text(names[d.customerId] ?? '—'),
+                      Text(designDate(d.date)),
+                      Text(designMoney(d.remainingMinor)),
+                      DesignPill(
+                        d.overdueAt(now) ? 'متأخر' : 'قريب',
+                        color: d.overdueAt(now) ? Colors.red : Colors.orange,
+                      ),
+                    ],
+                  )
+                  .toList(),
+            ),
+          );
+          final balances =
+              data.customers
+                  .where((c) => data.balances.containsKey(c.id))
+                  .toList()
+                ..sort(
+                  (a, b) => data.balances[b.id]!.outstandingMinor.compareTo(
+                    data.balances[a.id]!.outstandingMinor,
+                  ),
+                );
+          final balancePanel = DesignPanel(
+            title: 'أرصدة العملاء',
+            action: TextButton(
+              onPressed: () => Get.toNamed(AppRoutes.customers),
+              child: const Text('عرض الكل'),
+            ),
+            child: DesignTable(
+              minWidth: 400,
+              rowHeight: 42,
+              headers: const ['العميل', 'الرصيد المستحق', ''],
+              rows: balances
+                  .take(4)
+                  .map(
+                    (c) => <Widget>[
+                      InkWell(
+                        onTap: () => openCustomer(c.id),
+                        child: Row(
+                          children: [
+                            DesignAvatar(c.name),
+                            const SizedBox(width: 12),
+                            Text(c.name),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        designMoney(data.balances[c.id]!.outstandingMinor),
+                        style: TextStyle(
+                          color: data.balances[c.id]!.outstandingMinor > 0
+                              ? Colors.red
+                              : designGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => openCustomer(c.id),
+                        tooltip: 'عرض الحساب',
+                        icon: const Icon(Icons.more_vert),
+                      ),
+                    ],
+                  )
+                  .toList(),
+            ),
+          );
+          final daily = List.generate(chartDays, (i) {
+            final date = today.subtract(Duration(days: chartDays - i - 1));
+            final end = date.add(const Duration(days: 1));
+            return (
+              date,
+              data.payments
+                  .where(
+                    (p) =>
+                        !p.paymentDate.isBefore(date) &&
+                        p.paymentDate.isBefore(end),
+                  )
+                  .fold<int>(0, (sum, p) => sum + p.amountMinor),
+            );
+          });
+          final chart = DesignPanel(
+            title: 'حركة التحصيل',
+            action: DropdownButton<int>(
+              value: chartDays,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 7, child: Text('آخر 7 أيام')),
+                DropdownMenuItem(value: 14, child: Text('آخر 14 يوم')),
+              ],
+              onChanged: (v) => setState(() => chartDays = v!),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: _CollectionChart(values: daily),
+            ),
+          );
+          return ListView(
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).width < 600 ? 16 : 30,
+            ),
+            children: [
+              DesignHeader(
+                title: 'الرئيسية',
+                subtitle: 'نظرة على حساباتك اليوم',
+                actions: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      SizedBox(
+                        width: MediaQuery.sizeOf(context).width < 760
+                            ? 240
+                            : 460,
+                        child: TextField(
+                          onChanged: (v) => setState(() => query = v),
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search),
+                            hintText: 'ابحث عن عميل أو فاتورة...',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 12,
+                        children: [
+                          const SyncStatusBadge(),
+                          DesignAction(
+                            'عميل جديد',
+                            Icons.person_add_outlined,
+                            () => Get.toNamed(AppRoutes.customerCreate),
+                          ),
+                          DesignAction(
+                            'تسجيل دفعة',
+                            Icons.payment_outlined,
+                            () => Get.toNamed(AppRoutes.paymentCreate),
+                          ),
+                          DesignAction(
+                            'فاتورة جديدة',
+                            Icons.add,
+                            () => Get.toNamed(AppRoutes.invoiceCreate),
+                            primary: true,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              DesignStats(
+                children: [
+                  DesignStat(
+                    'إجمالي المستحق',
+                    designMoney(outstanding),
+                    Icons.payment,
+                    highlight: true,
+                  ),
+                  DesignStat(
+                    'تحصيل اليوم',
+                    designMoney(todayCollected),
+                    Icons.download_outlined,
+                  ),
+                  DesignStat(
+                    'إجمالي المحصل',
+                    designMoney(collected),
+                    Icons.check_circle_outline,
+                  ),
+                  DesignStat(
+                    'عدد العملاء',
+                    '${data.customers.length}',
+                    Icons.people_outline,
+                  ),
+                  DesignStat(
+                    'أقساط هذا الشهر',
+                    designMoney(
+                      data.dues
+                          .where(
+                            (d) =>
+                                d.date.year == now.year &&
+                                d.date.month == now.month,
+                          )
+                          .fold<int>(0, (sum, d) => sum + d.remainingMinor),
+                    ),
+                    Icons.calendar_month_outlined,
+                  ),
+                  DesignStat(
+                    'مبالغ متأخرة',
+                    designMoney(
+                      data.dues
+                          .where((d) => d.overdueAt(now))
+                          .fold<int>(0, (sum, d) => sum + d.remainingMinor),
+                    ),
+                    Icons.access_time,
+                    color: Colors.red,
+                    highlight: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              LayoutBuilder(
+                builder: (context, box) => box.maxWidth >= 1150
+                    ? Column(
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 6, child: recent),
+                              const SizedBox(width: 16),
+                              Expanded(flex: 5, child: due),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 6, child: chart),
+                              const SizedBox(width: 16),
+                              Expanded(flex: 5, child: balancePanel),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          recent,
+                          const SizedBox(height: 18),
+                          chart,
+                          const SizedBox(height: 18),
+                          balancePanel,
+                          const SizedBox(height: 18),
+                          due,
+                        ],
+                      ),
+              ),
+            ],
+          );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildQuickActions(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _QuickActionButton(
-              icon: Icons.person_add_outlined,
-              label: 'عميل جديد',
-              color: theme.colorScheme.primary,
-              onTap: () => Get.toNamed(AppRoutes.customerCreate),
-            ),
-            _QuickActionButton(
-              icon: Icons.receipt_outlined,
-              label: 'فاتورة جديدة',
-              color: const Color(0xFF2E7D32),
-              onTap: () => Get.toNamed(AppRoutes.invoiceCreate),
-            ),
-            _QuickActionButton(
-              icon: Icons.payments_outlined,
-              label: 'تسجيل دفعة',
-              color: const Color(0xFFE65100),
-              onTap: () => Get.toNamed(AppRoutes.paymentCreate),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatsGrid(BuildContext context, WorkspaceStats stats) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Column(
-      children: [
-        // Primary big banner: Total Receivables (المديونية / المستحقات)
-        Card(
-          elevation: 0,
-          color: isDark
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-              : const Color(0xFFE8F5E9),
-          shape: RoundedRectangleBorder(
-            side: BorderSide(
-              color: theme.colorScheme.primary.withValues(alpha: 0.3),
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+class _CollectionChart extends StatelessWidget {
+  const _CollectionChart({required this.values});
+  final List<(DateTime, int)> values;
+  @override
+  Widget build(BuildContext context) {
+    final max = values.fold<int>(0, (m, v) => v.$2 > m ? v.$2 : m);
+    return SizedBox(
+      height: 220,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        textDirection: TextDirection.ltr,
+        children: [
+          for (final v in values)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text(
-                      'إجمالي المستحقات (الديون)',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
+                    FittedBox(
+                      child: Text(
+                        designMoney(v.$2),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      MoneyUtils.formatMinor(stats.totalReceivablesMinor),
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
+                    const SizedBox(height: 7),
+                    Container(
+                      height: max == 0 ? 2 : 150 * v.$2 / max + 2,
+                      constraints: const BoxConstraints(maxWidth: 54),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF37BF91), Color(0xFF16A56F)],
+                        ),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(4),
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${v.$1.day}/${v.$1.month}',
+                      style: const TextStyle(fontSize: 12, color: designMuted),
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 28,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // 3 Secondary Cards Row: Collected, Invoices Count, Customers Count
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                title: 'إجمالي المحصل',
-                value: MoneyUtils.formatMinor(stats.totalCollectedMinor),
-                icon: Icons.check_circle_outline_rounded,
-                iconColor: Colors.green,
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _MetricCard(
-                title: 'عدد العملاء',
-                value: '${stats.customersCount}',
-                icon: Icons.people_outline_rounded,
-                iconColor: Colors.blue,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _MetricCard(
-                title: 'عدد الفواتير',
-                value: '${stats.invoicesCount}',
-                icon: Icons.receipt_long_outlined,
-                iconColor: Colors.purple,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickActionButton extends StatelessWidget {
-  const _QuickActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.iconColor,
-  });
-
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: iconColor, size: 18),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              title,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 11,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

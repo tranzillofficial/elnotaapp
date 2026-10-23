@@ -74,3 +74,22 @@ class SyncOutbox extends Table {
 - Can an invoice be edited after posting, or must changes be a correction event?
 - What is the exact outstanding balance sign convention and handling of customer advances?
 - Currency precision, invoicing/discount/tax policies and retention period?
+
+## Local additive migration: version 2
+`AppConstants.dbVersion` is 2. The Drift upgrade creates the existing raw SQL
+schema idempotently and adds `invoice_terms` without dropping/replacing records.
+A real in-memory v1 fixture verifies existing customers survive the upgrade.
+
+`invoice_terms`: invoice_id (PK), workspace_id, customer_id, method
+(cash/credit/installments), upfront_minor, months (1..120), first_due_date.
+Amounts remain integer minor units. Existing invoices need no backfill; absence
+of terms preserves their legacy credit display. New invoice + terms + upfront
+receipt + ledger + outbox are atomic. Backups include customers, invoices,
+invoice_items, payments, ledger_entries, invoice_terms and pending outbox.
+
+Raw SQL streams use a local commit/invalidation signal because these tables
+are not generated Drift entities. Tests verify balance streams refresh after
+payment and duplicate receipts remain idempotent.
+
+This is a LOCAL migration only. No production Supabase migration was run. Do not
+apply relational proposal SQL to the legacy JSON production database.

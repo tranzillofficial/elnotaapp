@@ -9,6 +9,7 @@ import '../../features/invoices/views/all_invoices_view.dart';
 import '../../features/payments/views/all_payments_view.dart';
 import '../../features/settings/views/settings_view.dart';
 import 'home_overview_view.dart';
+import '../../core/widgets/design_widgets.dart';
 
 /// Navigation destination data model.
 class _NavDestination {
@@ -62,14 +63,17 @@ const _destinations = [
 /// - Tablet   → NavigationRail (collapsed) with Badges
 /// - Desktop  → NavigationRail (extended) with Badges
 class HomeShellView extends StatefulWidget {
-  const HomeShellView({super.key});
+  const HomeShellView({super.key, this.initialIndex = 0});
+  final int initialIndex;
 
   @override
   State<HomeShellView> createState() => _HomeShellViewState();
 }
 
 class _HomeShellViewState extends State<HomeShellView> {
-  int _selectedIndex = 0;
+  late int _selectedIndex =
+      (Get.arguments is Map ? (Get.arguments as Map)['tab'] as int? : null) ??
+      widget.initialIndex;
 
   void _onDestinationSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -222,58 +226,13 @@ class _RailShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       body: Row(
         children: [
-          // ── Navigation rail ───────────────────────────────────────────────
-          NavigationRail(
-            extended: extended,
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onDestinationSelected,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.receipt_long_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-            ),
-            destinations: _destinations
-                .map(
-                  (d) => NavigationRailDestination(
-                    icon: _buildNavBadge(
-                      destination: d,
-                      stats: stats,
-                      isSelected: false,
-                    ),
-                    selectedIcon: _buildNavBadge(
-                      destination: d,
-                      stats: stats,
-                      isSelected: true,
-                    ),
-                    label: Text(d.label.tr),
-                  ),
-                )
-                .toList(),
+          DesignSidebar(
+            selected: selectedIndex,
+            onSelect: onDestinationSelected,
           ),
-          const VerticalDivider(width: 1, thickness: 1),
-          // ── Content area ──────────────────────────────────────────────────
           Expanded(child: body),
         ],
       ),

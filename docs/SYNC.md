@@ -76,3 +76,10 @@
 
 ## Logging and observability
 Log anonymized operation IDs, result codes, retry counts and sync lag. Avoid logging customers' names, credentials, complete financial payloads or secrets.
+
+## New application compatibility gate (2026-10-23)
+The shared production project belongs to the old JSON-document application.
+The new relational push/pull implementation is disabled unless explicitly built
+with ENABLE_RELATIONAL_SYNC=true. Startup, reconnect and direct push/pull calls
+therefore cannot write new ledger records into the old project's contract.
+Only enable it against a reviewed isolated compatible staging backend first.

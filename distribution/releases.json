@@ -1,0 +1,7 @@
+{
+  "site": "https://elnota.shop",
+  "webApp": "https://app.elnota.shop",
+  "android": null,
+  "windowsX64": null,
+  "windowsX86": { "supported": false, "alternative": "https://app.elnota.shop" }
+}

@@ -10,7 +10,7 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // ── Database ───────────────────────────────────────────────────────────────
-  static const int dbVersion = 1;
+  static const int dbVersion = 2;
   static const String dbFileName = 'elnota.db';
 
   // ── GetStorage keys ────────────────────────────────────────────────────────
@@ -26,6 +26,7 @@ class AppConstants {
   // ── Currency ───────────────────────────────────────────────────────────────
   /// Default currency code (ISO 4217). Change via settings in Phase 2.
   static const String defaultCurrencyCode = 'EGP';
+
   /// Minor-unit factor: 1 EGP = 100 piastres.
   static const int minorUnitFactor = 100;
 

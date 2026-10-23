@@ -105,7 +105,9 @@ abstract class AppTheme {
 
       // ── AppBar ──────────────────────────────────────────────────────────────
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        backgroundColor: isDark
+            ? AppColors.surfaceDark
+            : AppColors.surfaceLight,
         foregroundColor: primaryText,
         elevation: 0,
         scrolledUnderElevation: 1,
@@ -132,8 +134,13 @@ abstract class AppTheme {
       // ── Input / form fields ─────────────────────────────────────────────────
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        fillColor: isDark
+            ? AppColors.surfaceVariantDark
+            : AppColors.surfaceVariantLight,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
@@ -204,6 +211,25 @@ abstract class AppTheme {
         ),
       ),
 
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+          ),
+          side: WidgetStatePropertyAll(BorderSide(color: colorScheme.outline)),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? colorScheme.primary
+                : colorScheme.surface,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? Colors.white
+                : secondaryText,
+          ),
+        ),
+      ),
+
       // ── FAB ─────────────────────────────────────────────────────────────────
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: colorScheme.primary,
@@ -214,7 +240,9 @@ abstract class AppTheme {
 
       // ── Navigation bar (mobile bottom nav) ──────────────────────────────────
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        backgroundColor: isDark
+            ? AppColors.surfaceDark
+            : AppColors.surfaceLight,
         indicatorColor: colorScheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -234,11 +262,17 @@ abstract class AppTheme {
 
       // ── Navigation rail (tablet/desktop) ────────────────────────────────────
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        backgroundColor: isDark
+            ? AppColors.surfaceDark
+            : AppColors.surfaceLight,
         selectedIconTheme: IconThemeData(color: colorScheme.primary, size: 22),
         unselectedIconTheme: IconThemeData(color: secondaryText, size: 22),
-        selectedLabelTextStyle: AppTextStyles.label.copyWith(color: colorScheme.primary),
-        unselectedLabelTextStyle: AppTextStyles.label.copyWith(color: secondaryText),
+        selectedLabelTextStyle: AppTextStyles.label.copyWith(
+          color: colorScheme.primary,
+        ),
+        unselectedLabelTextStyle: AppTextStyles.label.copyWith(
+          color: secondaryText,
+        ),
         indicatorColor: colorScheme.primaryContainer,
         elevation: 0,
       ),
@@ -261,11 +295,15 @@ abstract class AppTheme {
 
       // ── Chip ────────────────────────────────────────────────────────────────
       chipTheme: ChipThemeData(
-        backgroundColor: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
+        backgroundColor: isDark
+            ? AppColors.surfaceVariantDark
+            : AppColors.surfaceVariantLight,
         labelStyle: AppTextStyles.label.copyWith(color: primaryText),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+        side: BorderSide(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
       ),
 
       // ── SnackBar ─────────────────────────────────────────────────────────────
@@ -277,7 +315,9 @@ abstract class AppTheme {
 
       // ── Dialog ──────────────────────────────────────────────────────────────
       dialogTheme: DialogThemeData(
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        backgroundColor: isDark
+            ? AppColors.surfaceDark
+            : AppColors.surfaceLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         titleTextStyle: AppTextStyles.subheading.copyWith(color: primaryText),
         contentTextStyle: AppTextStyles.body.copyWith(color: primaryText),
@@ -286,7 +326,9 @@ abstract class AppTheme {
 
       // ── BottomSheet ──────────────────────────────────────────────────────────
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        backgroundColor: isDark
+            ? AppColors.surfaceDark
+            : AppColors.surfaceLight,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -221,7 +222,55 @@ class AppDao {
   // Customers
   // ──────────────────────────────────────────────────────────────────────────
 
+  Future<Map<String, dynamic>>
+  exportLocalSnapshot() => _db.transaction(() async {
+    final snapshot = <String, dynamic>{
+      'schema_version': 2,
+      'workspace_id': _wsId,
+      'exported_at': DateTime.now().toIso8601String(),
+    };
+    for (final table in [
+      'customers',
+      'invoices',
+      'payments',
+      'ledger_entries',
+      'invoice_terms',
+      'sync_outbox',
+    ]) {
+      snapshot[table] =
+          (await _db
+                  .customSelect(
+                    'SELECT * FROM $table WHERE workspace_id = ?',
+                    variables: [Variable.withString(_wsId)],
+                  )
+                  .get())
+              .map((r) => r.data)
+              .toList();
+    }
+    snapshot['invoice_items'] =
+        (await _db
+                .customSelect(
+                  'SELECT item.* FROM invoice_items item JOIN invoices i ON item.invoice_id = i.id WHERE i.workspace_id = ?',
+                  variables: [Variable.withString(_wsId)],
+                )
+                .get())
+            .map((r) => r.data)
+            .toList();
+    return snapshot;
+  });
+
   Future<void> createTables() async {
+    await _db.customStatement('''
+      CREATE TABLE IF NOT EXISTS invoice_terms (
+        invoice_id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        customer_id TEXT NOT NULL,
+        method TEXT NOT NULL CHECK(method IN ('cash','credit','installments')),
+        upfront_minor INTEGER NOT NULL CHECK(upfront_minor >= 0),
+        months INTEGER NOT NULL CHECK(months BETWEEN 1 AND 120),
+        first_due_date INTEGER NOT NULL
+      )
+    ''');
     await _db.customStatement('''
       CREATE TABLE IF NOT EXISTS workspaces (
         id TEXT PRIMARY KEY,
@@ -370,7 +419,7 @@ class AppDao {
         : [Variable.withString(_wsId)];
     return _db
         .customSelect('SELECT * FROM customers $q', variables: vars)
-        .watch()
+        .watchLocal()
         .map((rows) => rows.map(_mapCustomer).toList());
   }
 
@@ -380,7 +429,7 @@ class AppDao {
           'SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL LIMIT 1',
           variables: [Variable.withString(id)],
         )
-        .watch()
+        .watchLocal()
         .map((rows) => rows.isEmpty ? null : _mapCustomer(rows.first));
   }
 
@@ -409,8 +458,15 @@ class AppDao {
       entityType: 'customer',
       entityId: id,
       operationType: 'create',
-      payload: {'id': id, 'workspace_id': _wsId, 'name': name, 'phone': phone, 'notes': notes},
+      payload: {
+        'id': id,
+        'workspace_id': _wsId,
+        'name': name,
+        'phone': phone,
+        'notes': notes,
+      },
     );
+    LocalQueryChanges.notify();
     return id;
   }
 
@@ -473,7 +529,7 @@ class AppDao {
              ORDER BY invoice_date DESC''',
           variables: [Variable.withString(customerId)],
         )
-        .watch()
+        .watchLocal()
         .map((rows) => rows.map(_mapInvoice).toList());
   }
 
@@ -484,7 +540,7 @@ class AppDao {
     final statusClause = status != null && status.isNotEmpty
         ? "AND i.status = ?"
         : "";
-    
+
     final vars = <Variable>[Variable.withString(_wsId)];
     if (search != null && search.isNotEmpty) {
       vars.add(Variable.withString('%${search.toLowerCase()}%'));
@@ -496,15 +552,12 @@ class AppDao {
     }
 
     return _db
-        .customSelect(
-          '''SELECT i.*, c.name AS customer_name
+        .customSelect('''SELECT i.*, c.name AS customer_name
              FROM invoices i
              LEFT JOIN customers c ON c.id = i.customer_id
              WHERE i.workspace_id = ? AND i.deleted_at IS NULL $searchClause $statusClause
-             ORDER BY i.invoice_date DESC''',
-          variables: vars,
-        )
-        .watch()
+             ORDER BY i.invoice_date DESC''', variables: vars)
+        .watchLocal()
         .map((rows) => rows.map(_mapInvoice).toList());
   }
 
@@ -514,17 +567,157 @@ class AppDao {
           'SELECT * FROM invoices WHERE id = ? LIMIT 1',
           variables: [Variable.withString(id)],
         )
-        .watch()
+        .watchLocal()
         .map((rows) => rows.isEmpty ? null : _mapInvoice(rows.first));
   }
 
   Future<List<InvoiceItemRow>> getInvoiceItems(String invoiceId) async {
-    final rows = await _db.customSelect(
-      'SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY created_at',
-      variables: [Variable.withString(invoiceId)],
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY created_at',
+          variables: [Variable.withString(invoiceId)],
+        )
+        .get();
     return rows.map(_mapInvoiceItem).toList();
   }
+
+  Stream<List<Map<String, dynamic>>> watchInvoiceTerms() => _db
+      .customSelect(
+        'SELECT * FROM invoice_terms WHERE workspace_id = ?',
+        variables: [Variable.withString(_wsId)],
+      )
+      .watchLocal()
+      .map((rows) => rows.map((r) => r.data).toList());
+
+  Future<String> createInvoiceWithTerms({
+    required String customerId,
+    required int totalMinor,
+    required int discountMinor,
+    required bool isManualAmount,
+    required List<Map<String, dynamic>> items,
+    required String method,
+    required int upfrontMinor,
+    required int months,
+    required DateTime firstDueDate,
+    required DateTime invoiceDate,
+    String? notes,
+  }) async {
+    final net = totalMinor - discountMinor;
+    if (totalMinor <= 0 ||
+        discountMinor < 0 ||
+        net <= 0 ||
+        upfrontMinor < 0 ||
+        upfrontMinor > net ||
+        months < 1 ||
+        months > 120 ||
+        !['cash', 'credit', 'installments'].contains(method)) {
+      throw ArgumentError('Invalid invoice terms');
+    }
+    if (method == 'cash' && upfrontMinor != net ||
+        method == 'installments' &&
+            (upfrontMinor == net ||
+                firstDueDate.isBefore(
+                  DateTime(
+                    invoiceDate.year,
+                    invoiceDate.month,
+                    invoiceDate.day,
+                  ),
+                ))) {
+      throw ArgumentError('Invalid payment schedule');
+    }
+    return _db
+        .transaction(() async {
+          final id = await createInvoice(
+            customerId: customerId,
+            totalMinor: totalMinor,
+            discountMinor: discountMinor,
+            isManualAmount: isManualAmount,
+            items: items,
+            notes: notes,
+            invoiceDate: invoiceDate,
+            dueDate: firstDueDate,
+          );
+          await _db.customInsert(
+            'INSERT INTO invoice_terms (invoice_id, workspace_id, customer_id, method, upfront_minor, months, first_due_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            variables: [
+              Variable.withString(id),
+              Variable.withString(_wsId),
+              Variable.withString(customerId),
+              Variable.withString(method),
+              Variable.withInt(upfrontMinor),
+              Variable.withInt(months),
+              Variable.withInt(firstDueDate.millisecondsSinceEpoch),
+            ],
+          );
+          await _enqueueOutbox(
+            entityType: 'invoice',
+            entityId: id,
+            operationType: 'create',
+            payload: {
+              'id': id,
+              'workspace_id': _wsId,
+              'customer_id': customerId,
+              'total_minor': totalMinor,
+              'discount_minor': discountMinor,
+              'invoice_date': invoiceDate.toIso8601String(),
+              'notes': notes,
+              'items': items,
+              'payment_terms': {
+                'method': method,
+                'upfront_minor': upfrontMinor,
+                'months': months,
+                'first_due_date': firstDueDate.toIso8601String(),
+              },
+            },
+          );
+          await postInvoice(id);
+          if (upfrontMinor > 0) {
+            await addPayment(
+              customerId: customerId,
+              amountMinor: upfrontMinor,
+              idempotencyKey: 'invoice-upfront:$id',
+              notes: 'دفعة مقدمة للفاتورة $id',
+              paymentDate: invoiceDate,
+            );
+          }
+          return id;
+        })
+        .then((id) {
+          LocalQueryChanges.notify();
+          return id;
+        });
+  }
+
+  Stream<List<LedgerEntryRow>> watchCustomerLedger(String customerId) => _db
+      .customSelect(
+        'SELECT * FROM ledger_entries WHERE workspace_id = ? AND customer_id = ? ORDER BY occurred_at, id',
+        variables: [
+          Variable.withString(_wsId),
+          Variable.withString(customerId),
+        ],
+      )
+      .watchLocal()
+      .map(
+        (rows) => rows
+            .map(
+              (r) => LedgerEntryRow(
+                id: r.read<String>('id'),
+                workspaceId: r.read<String>('workspace_id'),
+                customerId: r.read<String>('customer_id'),
+                sourceId: r.read<String>('source_id'),
+                eventType: r.read<String>('event_type'),
+                amountMinor: r.read<int>('amount_minor'),
+                notes: r.readNullable<String>('notes'),
+                occurredAt: DateTime.fromMillisecondsSinceEpoch(
+                  r.read<int>('occurred_at'),
+                ),
+                createdAt: DateTime.fromMillisecondsSinceEpoch(
+                  r.read<int>('created_at'),
+                ),
+              ),
+            )
+            .toList(),
+      );
 
   /// Creates a draft invoice (no ledger entry yet).
   /// Call [postInvoice] to post and create the ledger charge.
@@ -556,7 +749,9 @@ class AppDao {
         notes != null ? Variable.withString(notes) : const Variable(null),
         Variable.withBool(isManualAmount),
         Variable.withInt(date),
-        dueDate != null ? Variable.withInt(dueDate.millisecondsSinceEpoch) : const Variable(null),
+        dueDate != null
+            ? Variable.withInt(dueDate.millisecondsSinceEpoch)
+            : const Variable(null),
         Variable.withInt(now),
         Variable.withInt(now),
       ],
@@ -572,7 +767,9 @@ class AppDao {
         variables: [
           Variable.withString(itemId),
           Variable.withString(id),
-          item['product_id'] != null ? Variable.withString(item['product_id'] as String) : const Variable(null),
+          item['product_id'] != null
+              ? Variable.withString(item['product_id'] as String)
+              : const Variable(null),
           Variable.withString(item['description'] as String),
           Variable.withInt((item['quantity'] as int?) ?? 1),
           Variable.withInt(item['unit_price_minor'] as int),
@@ -586,13 +783,17 @@ class AppDao {
 
   /// Posts a draft invoice: sets status='posted', writes ledger debit, enqueues outbox.
   Future<void> postInvoice(String invoiceId) async {
-    final rows = await _db.customSelect(
-      'SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL LIMIT 1',
-      variables: [Variable.withString(invoiceId)],
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+          variables: [Variable.withString(invoiceId)],
+        )
+        .get();
     if (rows.isEmpty) throw StateError('Invoice $invoiceId not found');
     final inv = _mapInvoice(rows.first);
-    if (inv.status != 'draft') throw StateError('Invoice already posted or voided');
+    if (inv.status != 'draft') {
+      throw StateError('Invoice already posted or voided');
+    }
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final netMinor = inv.netMinor;
@@ -617,8 +818,10 @@ class AppDao {
           Variable.withString(inv.customerId),
           Variable.withString(invoiceId),
           Variable.withInt(netMinor),
-          inv.notes != null ? Variable.withString(inv.notes!) : const Variable(null),
-          Variable.withInt(now),
+          inv.notes != null
+              ? Variable.withString(inv.notes!)
+              : const Variable(null),
+          Variable.withInt(inv.invoiceDate.millisecondsSinceEpoch),
           Variable.withInt(now),
         ],
       );
@@ -643,7 +846,7 @@ class AppDao {
              ORDER BY payment_date DESC''',
           variables: [Variable.withString(customerId)],
         )
-        .watch()
+        .watchLocal()
         .map((rows) => rows.map(_mapPayment).toList());
   }
 
@@ -658,15 +861,12 @@ class AppDao {
     }
 
     return _db
-        .customSelect(
-          '''SELECT p.*, c.name AS customer_name
+        .customSelect('''SELECT p.*, c.name AS customer_name
              FROM payments p
              LEFT JOIN customers c ON c.id = p.customer_id
              WHERE p.workspace_id = ? AND p.deleted_at IS NULL $searchClause
-             ORDER BY p.payment_date DESC''',
-          variables: vars,
-        )
-        .watch()
+             ORDER BY p.payment_date DESC''', variables: vars)
+        .watchLocal()
         .map((rows) => rows.map(_mapPayment).toList());
   }
 
@@ -687,7 +887,7 @@ class AppDao {
             Variable.withString(_wsId),
           ],
         )
-        .watch()
+        .watchLocal()
         .map((rows) {
           if (rows.isEmpty) {
             return const WorkspaceStats(
@@ -740,16 +940,25 @@ class AppDao {
             Variable.withInt(limit),
           ],
         )
-        .watch()
-        .map((rows) => rows.map((r) => RecentActivityItem(
-              id: r.read<String>('id'),
-              customerId: r.read<String>('customer_id'),
-              customerName: r.readNullable<String>('customer_name') ?? 'عميل',
-              type: r.read<String>('type'),
-              amountMinor: r.read<int>('amount_minor'),
-              date: DateTime.fromMillisecondsSinceEpoch(r.read<int>('trans_date')),
-              notes: r.readNullable<String>('notes'),
-            )).toList());
+        .watchLocal()
+        .map(
+          (rows) => rows
+              .map(
+                (r) => RecentActivityItem(
+                  id: r.read<String>('id'),
+                  customerId: r.read<String>('customer_id'),
+                  customerName:
+                      r.readNullable<String>('customer_name') ?? 'عميل',
+                  type: r.read<String>('type'),
+                  amountMinor: r.read<int>('amount_minor'),
+                  date: DateTime.fromMillisecondsSinceEpoch(
+                    r.read<int>('trans_date'),
+                  ),
+                  notes: r.readNullable<String>('notes'),
+                ),
+              )
+              .toList(),
+        );
   }
 
   /// Idempotent: if idempotency_key already exists, silently skips.
@@ -761,10 +970,12 @@ class AppDao {
     DateTime? paymentDate,
   }) async {
     // Check idempotency
-    final existing = await _db.customSelect(
-      'SELECT id FROM payments WHERE idempotency_key = ? LIMIT 1',
-      variables: [Variable.withString(idempotencyKey)],
-    ).get();
+    final existing = await _db
+        .customSelect(
+          'SELECT id FROM payments WHERE idempotency_key = ? LIMIT 1',
+          variables: [Variable.withString(idempotencyKey)],
+        )
+        .get();
     if (existing.isNotEmpty) return; // Already applied
 
     final id = _uuid.v4();
@@ -820,6 +1031,7 @@ class AppDao {
         },
       );
     });
+    LocalQueryChanges.notify();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -841,7 +1053,7 @@ class AppDao {
              GROUP BY customer_id''',
           variables: [Variable.withString(customerId)],
         )
-        .watch()
+        .watchLocal()
         .map((rows) {
           if (rows.isEmpty) {
             return CustomerBalance(
@@ -895,18 +1107,20 @@ class AppDao {
 
   Future<List<Map<String, dynamic>>> getPendingOutbox({int limit = 50}) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final rows = await _db.customSelect(
-      '''SELECT * FROM sync_outbox
+    final rows = await _db
+        .customSelect(
+          '''SELECT * FROM sync_outbox
          WHERE workspace_id = ? AND status = 'pending'
            AND (next_retry_at IS NULL OR next_retry_at <= ?)
          ORDER BY created_at ASC
          LIMIT ?''',
-      variables: [
-        Variable.withString(_wsId),
-        Variable.withInt(now),
-        Variable.withInt(limit),
-      ],
-    ).get();
+          variables: [
+            Variable.withString(_wsId),
+            Variable.withInt(now),
+            Variable.withInt(limit),
+          ],
+        )
+        .get();
 
     return rows.map((r) => r.data).toList();
   }
@@ -947,11 +1161,15 @@ class AppDao {
       );
     } else {
       // Exponential backoff with capped delay: min(2^attempts * 5s, 300s)
-      final rows = await _db.customSelect(
-        'SELECT attempts FROM sync_outbox WHERE operation_id = ? LIMIT 1',
-        variables: [Variable.withString(opId)],
-      ).get();
-      final currentAttempts = rows.isNotEmpty ? (rows.first.read<int>('attempts')) : 0;
+      final rows = await _db
+          .customSelect(
+            'SELECT attempts FROM sync_outbox WHERE operation_id = ? LIMIT 1',
+            variables: [Variable.withString(opId)],
+          )
+          .get();
+      final currentAttempts = rows.isNotEmpty
+          ? (rows.first.read<int>('attempts'))
+          : 0;
       final delaySeconds = (1 << currentAttempts).clamp(5, 300);
       final nextRetry = now + (delaySeconds * 1000);
 
@@ -976,15 +1194,17 @@ class AppDao {
              WHERE workspace_id = ? AND status IN ('pending', 'sending')''',
           variables: [Variable.withString(_wsId)],
         )
-        .watch()
+        .watchLocal()
         .map((rows) => rows.isEmpty ? 0 : rows.first.read<int>('cnt'));
   }
 
   Future<Map<String, dynamic>?> getSyncState() async {
-    final rows = await _db.customSelect(
-      'SELECT * FROM sync_state WHERE workspace_id = ? LIMIT 1',
-      variables: [Variable.withString(_wsId)],
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT * FROM sync_state WHERE workspace_id = ? LIMIT 1',
+          variables: [Variable.withString(_wsId)],
+        )
+        .get();
     return rows.isEmpty ? null : rows.first.data;
   }
 
@@ -1002,13 +1222,7 @@ class AppDao {
            last_success_at = COALESCE(excluded.last_success_at, sync_state.last_success_at),
            last_error = excluded.last_error,
            updated_at = excluded.updated_at''',
-      [
-        _wsId,
-        lastCursor,
-        lastSuccessAt,
-        lastError,
-        now,
-      ],
+      [_wsId, lastCursor, lastSuccessAt, lastError, now],
     );
   }
 
@@ -1017,93 +1231,97 @@ class AppDao {
   // ──────────────────────────────────────────────────────────────────────────
 
   CustomerRow _mapCustomer(QueryRow r) => CustomerRow(
-        id: r.read<String>('id'),
-        workspaceId: r.read<String>('workspace_id'),
-        name: r.read<String>('name'),
-        phone: r.readNullable<String>('phone'),
-        notes: r.readNullable<String>('notes'),
-        version: r.read<int>('version'),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('updated_at')),
-        deletedAt: r.readNullable<int>('deleted_at') != null
-            ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('deleted_at'))
-            : null,
-      );
+    id: r.read<String>('id'),
+    workspaceId: r.read<String>('workspace_id'),
+    name: r.read<String>('name'),
+    phone: r.readNullable<String>('phone'),
+    notes: r.readNullable<String>('notes'),
+    version: r.read<int>('version'),
+    createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('updated_at')),
+    deletedAt: r.readNullable<int>('deleted_at') != null
+        ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('deleted_at'))
+        : null,
+  );
 
   InvoiceRow _mapInvoice(QueryRow r) => InvoiceRow(
-        id: r.read<String>('id'),
-        workspaceId: r.read<String>('workspace_id'),
-        customerId: r.read<String>('customer_id'),
-        customerName: r.data.containsKey('customer_name')
-            ? r.readNullable<String>('customer_name')
-            : null,
-        invoiceNumber: r.readNullable<String>('invoice_number'),
-        status: r.read<String>('status'),
-        totalMinor: r.read<int>('total_minor'),
-        discountMinor: r.read<int>('discount_minor'),
-        notes: r.readNullable<String>('notes'),
-        isManualAmount: r.read<bool>('is_manual_amount'),
-        invoiceDate: DateTime.fromMillisecondsSinceEpoch(r.read<int>('invoice_date')),
-        dueDate: r.readNullable<int>('due_date') != null
-            ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('due_date'))
-            : null,
-        version: r.read<int>('version'),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('updated_at')),
-        deletedAt: r.readNullable<int>('deleted_at') != null
-            ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('deleted_at'))
-            : null,
-      );
+    id: r.read<String>('id'),
+    workspaceId: r.read<String>('workspace_id'),
+    customerId: r.read<String>('customer_id'),
+    customerName: r.data.containsKey('customer_name')
+        ? r.readNullable<String>('customer_name')
+        : null,
+    invoiceNumber: r.readNullable<String>('invoice_number'),
+    status: r.read<String>('status'),
+    totalMinor: r.read<int>('total_minor'),
+    discountMinor: r.read<int>('discount_minor'),
+    notes: r.readNullable<String>('notes'),
+    isManualAmount: r.read<bool>('is_manual_amount'),
+    invoiceDate: DateTime.fromMillisecondsSinceEpoch(
+      r.read<int>('invoice_date'),
+    ),
+    dueDate: r.readNullable<int>('due_date') != null
+        ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('due_date'))
+        : null,
+    version: r.read<int>('version'),
+    createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('updated_at')),
+    deletedAt: r.readNullable<int>('deleted_at') != null
+        ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('deleted_at'))
+        : null,
+  );
 
   InvoiceItemRow _mapInvoiceItem(QueryRow r) => InvoiceItemRow(
-        id: r.read<String>('id'),
-        invoiceId: r.read<String>('invoice_id'),
-        productId: r.readNullable<String>('product_id'),
-        description: r.read<String>('description'),
-        quantity: r.read<int>('quantity'),
-        unitPriceMinor: r.read<int>('unit_price_minor'),
-        discountMinor: r.read<int>('discount_minor'),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
-      );
+    id: r.read<String>('id'),
+    invoiceId: r.read<String>('invoice_id'),
+    productId: r.readNullable<String>('product_id'),
+    description: r.read<String>('description'),
+    quantity: r.read<int>('quantity'),
+    unitPriceMinor: r.read<int>('unit_price_minor'),
+    discountMinor: r.read<int>('discount_minor'),
+    createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
+  );
 
   PaymentRow _mapPayment(QueryRow r) => PaymentRow(
-        id: r.read<String>('id'),
-        workspaceId: r.read<String>('workspace_id'),
-        customerId: r.read<String>('customer_id'),
-        customerName: r.data.containsKey('customer_name')
-            ? r.readNullable<String>('customer_name')
-            : null,
-        amountMinor: r.read<int>('amount_minor'),
-        notes: r.readNullable<String>('notes'),
-        paymentDate: DateTime.fromMillisecondsSinceEpoch(r.read<int>('payment_date')),
-        idempotencyKey: r.read<String>('idempotency_key'),
-        version: r.read<int>('version'),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('updated_at')),
-        deletedAt: r.readNullable<int>('deleted_at') != null
-            ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('deleted_at'))
-            : null,
-      );
+    id: r.read<String>('id'),
+    workspaceId: r.read<String>('workspace_id'),
+    customerId: r.read<String>('customer_id'),
+    customerName: r.data.containsKey('customer_name')
+        ? r.readNullable<String>('customer_name')
+        : null,
+    amountMinor: r.read<int>('amount_minor'),
+    notes: r.readNullable<String>('notes'),
+    paymentDate: DateTime.fromMillisecondsSinceEpoch(
+      r.read<int>('payment_date'),
+    ),
+    idempotencyKey: r.read<String>('idempotency_key'),
+    version: r.read<int>('version'),
+    createdAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('created_at')),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('updated_at')),
+    deletedAt: r.readNullable<int>('deleted_at') != null
+        ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('deleted_at'))
+        : null,
+  );
 
-  String _encodePayload(Map<String, dynamic> m) {
-    final sb = StringBuffer('{');
-    var first = true;
-    m.forEach((k, v) {
-      if (!first) sb.write(',');
-      first = false;
-      sb.write('"$k":');
-      if (v == null) {
-        sb.write('null');
-      } else if (v is String) {
-        sb.write('"${v.replaceAll('"', '\\"')}"');
-      } else {
-        sb.write(v);
-      }
-    });
-    sb.write('}');
-    return sb.toString();
-  }
+  String _encodePayload(Map<String, dynamic> payload) => jsonEncode(payload);
 }
 
 // ─── DatabaseService ─────────────────────────────────────────────────────────
 
+/// Raw SQL tables are not generated Drift entities, so custom queries need an
+/// explicit invalidation signal. Queries subscribe before their initial read.
+abstract class LocalQueryChanges {
+  static final _changes = StreamController<void>.broadcast();
+  static void notify() => _changes.add(null);
+}
+
+extension LocalQueryStream on Selectable<QueryRow> {
+  Stream<List<QueryRow>> watchLocal() => Stream<void>.multi((controller) {
+    final sub = LocalQueryChanges._changes.stream.listen(
+      controller.add,
+      onError: controller.addError,
+    );
+    controller.add(null);
+    controller.onCancel = sub.cancel;
+  }).asyncMap((_) => get());
+}

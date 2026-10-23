@@ -1,3 +1,4 @@
+import '../../../core/utils/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/utils/app_constants.dart';
@@ -55,24 +56,32 @@ class LoginView extends GetView<AuthController> {
                   ),
                   const SizedBox(height: 32),
 
+                  OutlinedButton.icon(
+                    onPressed: () => Get.toNamed(AppRoutes.deviceLogin),
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('الدخول من تطبيق الموبايل'),
+                  ),
+                  const SizedBox(height: 16),
                   // Mode Toggle: Login vs Register
-                  Obx(() => SegmentedButton<bool>(
-                        segments: const [
-                          ButtonSegment<bool>(
-                            value: false,
-                            label: Text('تسجيل الدخول'),
-                            icon: Icon(Icons.login),
-                          ),
-                          ButtonSegment<bool>(
-                            value: true,
-                            label: Text('حساب جديد'),
-                            icon: Icon(Icons.person_add),
-                          ),
-                        ],
-                        selected: {controller.isSignUp.value},
-                        onSelectionChanged: (set) =>
-                            controller.isSignUp.value = set.first,
-                      )),
+                  Obx(
+                    () => SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment<bool>(
+                          value: false,
+                          label: Text('تسجيل الدخول'),
+                          icon: Icon(Icons.login),
+                        ),
+                        ButtonSegment<bool>(
+                          value: true,
+                          label: Text('حساب جديد'),
+                          icon: Icon(Icons.person_add),
+                        ),
+                      ],
+                      selected: {controller.isSignUp.value},
+                      onSelectionChanged: (set) =>
+                          controller.isSignUp.value = set.first,
+                    ),
+                  ),
                   const SizedBox(height: 24),
 
                   // Store Name (if Register)
@@ -106,37 +115,45 @@ class LoginView extends GetView<AuthController> {
                   const SizedBox(height: 16),
 
                   // Password
-                  Obx(() => TextField(
-                        controller: controller.passwordCtrl,
-                        obscureText: controller.isObscured.value,
-                        decoration: InputDecoration(
-                          labelText: 'كلمة المرور',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(controller.isObscured.value
+                  Obx(
+                    () => TextField(
+                      controller: controller.passwordCtrl,
+                      obscureText: controller.isObscured.value,
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            controller.isObscured.value
                                 ? Icons.visibility_off
-                                : Icons.visibility),
-                            onPressed: () => controller.isObscured.toggle(),
+                                : Icons.visibility,
                           ),
+                          onPressed: () => controller.isObscured.toggle(),
                         ),
-                      )),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
 
                   // Submit Button
-                  Obx(() => ElevatedButton(
-                        onPressed: controller.auth.isLoading.value
-                            ? null
-                            : controller.submit,
-                        child: controller.auth.isLoading.value
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Text(controller.isSignUp.value
-                                ? 'إنشاء حساب والبدء'
-                                : 'دخول'),
-                      )),
+                  Obx(
+                    () => ElevatedButton(
+                      onPressed: controller.auth.isLoading.value
+                          ? null
+                          : controller.submit,
+                      child: controller.auth.isLoading.value
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              controller.isSignUp.value
+                                  ? 'إنشاء حساب والبدء'
+                                  : 'دخول',
+                            ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
                   // Continue Offline
@@ -151,7 +168,8 @@ class LoginView extends GetView<AuthController> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(

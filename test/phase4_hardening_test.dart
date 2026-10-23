@@ -1,3 +1,6 @@
+import 'package:flutter/services.dart';
+import 'dart:io';
+import 'package:get_storage/get_storage.dart';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elnota/core/services/pdf_service.dart';
@@ -7,6 +10,24 @@ import 'package:elnota/features/invoices/models/invoice_model.dart';
 import 'package:elnota/features/payments/models/payment_model.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory storageDirectory;
+  setUpAll(() async {
+    storageDirectory = Directory.systemTemp.createTempSync('elnota-pdf-tests-');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (call) async => storageDirectory.path,
+        );
+    await GetStorage('GetStorage', storageDirectory.path).initStorage;
+  });
+  tearDownAll(() {
+    try {
+      storageDirectory.deleteSync(recursive: true);
+    } on FileSystemException {
+      /* GetStorage retains a Windows file handle until the test isolate exits. */
+    }
+  });
   group('PdfService Generation Tests', () {
     test('generates valid invoice PDF document with PDF header', () async {
       final inv = InvoiceModel(
@@ -92,37 +113,40 @@ void main() {
   });
 
   group('ExcelExportService Tests', () {
-    test('generates valid Excel workbook containing customers and invoices', () {
-      final customer = CustomerModel(
-        id: 'cust_2',
-        workspaceId: 'ws_1',
-        name: 'Tarek Zaki',
-        phone: '01122334455',
-        notes: 'VIP client',
-        createdAt: DateTime(2026, 10, 5),
-        updatedAt: DateTime(2026, 10, 5),
-      );
+    test(
+      'generates valid Excel workbook containing customers and invoices',
+      () {
+        final customer = CustomerModel(
+          id: 'cust_2',
+          workspaceId: 'ws_1',
+          name: 'Tarek Zaki',
+          phone: '01122334455',
+          notes: 'VIP client',
+          createdAt: DateTime(2026, 10, 5),
+          updatedAt: DateTime(2026, 10, 5),
+        );
 
-      final inv = InvoiceModel(
-        id: 'inv_2',
-        customerId: 'cust_2',
-        status: 'posted',
-        totalMinor: 25000,
-        discountMinor: 0,
-        isManualAmount: true,
-        invoiceDate: DateTime(2026, 10, 18),
-      );
+        final inv = InvoiceModel(
+          id: 'inv_2',
+          customerId: 'cust_2',
+          status: 'posted',
+          totalMinor: 25000,
+          discountMinor: 0,
+          isManualAmount: true,
+          invoiceDate: DateTime(2026, 10, 18),
+        );
 
-      final bytes = ExcelExportService.generateAccountingWorkbook(
-        customers: [customer],
-        invoices: [inv],
-      );
+        final bytes = ExcelExportService.generateAccountingWorkbook(
+          customers: [customer],
+          invoices: [inv],
+        );
 
-      expect(bytes, isNotNull);
-      expect(bytes!.isNotEmpty, isTrue);
-      // XLSX is a ZIP archive; starts with PK header
-      final header = String.fromCharCodes(bytes.take(2));
-      expect(header, 'PK');
-    });
+        expect(bytes, isNotNull);
+        expect(bytes!.isNotEmpty, isTrue);
+        // XLSX is a ZIP archive; starts with PK header
+        final header = String.fromCharCodes(bytes.take(2));
+        expect(header, 'PK');
+      },
+    );
   });
 }

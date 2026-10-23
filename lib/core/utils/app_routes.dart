@@ -7,14 +7,17 @@ class AppRoutes {
 
   static const String splash = '/';
   static const String home = '/home';
+  static const String admin = '/admin';
   static const String settings = '/settings';
 
   // ── Auth ───────────────────────────────────────────────────────────────────
+  static const String deviceLogin = '/auth/device-login';
   static const String login = '/auth/login';
   static const String register = '/auth/register';
 
   // ── Customers ──────────────────────────────────────────────────────────────
   static const String customers = '/customers';
+  static const String customerStatement = '/customers/statement';
   static const String customerDetail = '/customers/detail';
   static const String customerCreate = '/customers/create';
 

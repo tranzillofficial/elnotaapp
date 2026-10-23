@@ -1,201 +1,457 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/services/pdf_service.dart';
+import '../../../core/widgets/design_widgets.dart';
+import '../../../core/widgets/sync_status_badge.dart';
 import '../../../core/utils/app_routes.dart';
-import '../../../core/widgets/app_widgets.dart';
-import '../../invoices/views/invoice_list_view.dart';
-import '../../payments/views/payments_list_view.dart';
-import '../controllers/customer_detail_controller.dart';
-import '../models/customer_model.dart';
-import '../repositories/customer_repository.dart';
 
-/// Customer detail: balance header + invoices tab + payments tab.
-class CustomerDetailView extends StatelessWidget {
+class CustomerDetailView extends StatefulWidget {
   const CustomerDetailView({super.key});
+  @override
+  State<CustomerDetailView> createState() => _CustomerDetailViewState();
+}
 
+class _CustomerDetailViewState extends State<CustomerDetailView> {
+  int tab = 0;
+  String invoiceFilter = 'all';
+  final String customerId =
+      (Get.arguments as Map<String, dynamic>?)?['id'] as String? ?? '';
   @override
   Widget build(BuildContext context) {
-    final args = Get.arguments as Map<String, dynamic>?;
-    final customerId = args?['id'] as String? ?? '';
-    final ctrl = Get.put(
-      CustomerDetailController(CustomerRepository(), customerId),
-      tag: customerId,
-    );
-
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Obx(() => Text(
-                ctrl.customer.value?.name ?? 'nav_customers'.tr,
-              )),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              tooltip: 'كشف حساب PDF',
-              onPressed: () async {
-                final cust = ctrl.customer.value;
-                final bal = ctrl.balance.value;
-                if (cust != null && bal != null) {
-                  final bytes = await PdfService.generateCustomerStatementPdf(
-                    customer: cust,
-                    balance: bal,
-                    invoices: const [],
-                    payments: const [],
-                  );
-                  await PdfService.shareDocument(
-                    bytes,
-                    filename: 'Statement_${cust.name}.pdf',
-                  );
-                }
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'action_edit'.tr,
-              onPressed: () => Get.toNamed(
-                AppRoutes.customerCreate,
-                arguments: {'id': customerId, 'edit': true},
-              ),
-            ),
-          ],
-          bottom: TabBar(
-            tabs: [
-              Tab(text: 'nav_invoices'.tr),
-              Tab(text: 'nav_payments'.tr),
-            ],
-          ),
-        ),
-        body: Obx(() {
-          if (ctrl.isLoading.value) return const AppLoadingWidget();
-          if (ctrl.customer.value == null) {
-            return AppErrorWidget(message: 'error_not_found'.tr);
+    final body = SafeArea(
+      child: AccountDataBuilder(
+        builder: (context, data) {
+          final customer = data.customers
+              .where((c) => c.id == customerId)
+              .firstOrNull;
+          if (customer == null) {
+            return const Center(child: Text('العميل غير موجود'));
           }
-          return Column(
+          final balance = data.balances[customerId];
+          final invoices =
+              data.invoices.where((i) => i.customerId == customerId).toList()
+                ..sort((a, b) => b.invoiceDate.compareTo(a.invoiceDate));
+          final payments =
+              data.payments.where((p) => p.customerId == customerId).toList()
+                ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+          final movements = [
+            for (final i in invoices)
+              (
+                i.invoiceDate,
+                'فاتورة',
+                'فاتورة ${i.id.substring(0, 8)}',
+                i.netMinor,
+              ),
+            for (final p in payments)
+              (
+                p.paymentDate,
+                'دفعة',
+                p.notes ?? 'دفعة من العميل',
+                p.amountMinor,
+              ),
+          ]..sort((a, b) => b.$1.compareTo(a.$1));
+          final filteredInvoices = invoices
+              .where((i) => invoiceFilter == 'all' || i.status == invoiceFilter)
+              .toList();
+          void statement() => Get.toNamed(
+            AppRoutes.customerStatement,
+            arguments: {'id': customerId},
+          );
+          final main = Column(
             children: [
-              _BalanceHeader(balance: ctrl.balance.value),
-              const Expanded(
-                child: TabBarView(
+              DesignPanel(
+                child: Column(
                   children: [
-                    _InvoicesTab(),
-                    _PaymentsTab(),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Wrap(
+                        spacing: 20,
+                        runSpacing: 12,
+                        alignment: WrapAlignment.spaceBetween,
+                        children: [
+                          SegmentedButton<int>(
+                            segments: const [
+                              ButtonSegment(value: 0, label: Text('الفواتير')),
+                              ButtonSegment(value: 1, label: Text('الدفعات')),
+                              ButtonSegment(
+                                value: 2,
+                                label: Text('كشف الحساب'),
+                              ),
+                            ],
+                            selected: {tab},
+                            showSelectedIcon: false,
+                            onSelectionChanged: (v) {
+                              if (v.first == 2) {
+                                statement();
+                              } else {
+                                setState(() => tab = v.first);
+                              }
+                            },
+                          ),
+                          if (tab == 0)
+                            DropdownButton<String>(
+                              value: invoiceFilter,
+                              underline: const SizedBox(),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'all',
+                                  child: Text('كل الفواتير'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'posted',
+                                  child: Text('مرحّلة'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'draft',
+                                  child: Text('مسودة'),
+                                ),
+                              ],
+                              onChanged: (v) =>
+                                  setState(() => invoiceFilter = v!),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (tab == 0)
+                      DesignTable(
+                        headers: const [
+                          'رقم الفاتورة',
+                          'التاريخ',
+                          'الحالة',
+                          'القيمة',
+                          'الإجراءات',
+                        ],
+                        rows: filteredInvoices
+                            .map(
+                              (i) => <Widget>[
+                                Text(i.id.substring(0, 8)),
+                                Text(designDate(i.invoiceDate)),
+                                DesignPill(
+                                  i.isPosted ? 'مرحّلة' : 'مسودة',
+                                  color: i.isPosted
+                                      ? designGreen
+                                      : Colors.orange,
+                                ),
+                                Text(i.formattedNet),
+                                IconButton(
+                                  tooltip: 'عرض الفاتورة',
+                                  onPressed: () => Get.toNamed(
+                                    AppRoutes.invoiceDetail,
+                                    arguments: {'id': i.id},
+                                  ),
+                                  icon: const Icon(Icons.visibility_outlined),
+                                ),
+                              ],
+                            )
+                            .toList(),
+                      ),
+                    if (tab == 1)
+                      DesignTable(
+                        headers: const ['التاريخ', 'الوصف', 'القيمة'],
+                        rows: payments
+                            .map(
+                              (p) => <Widget>[
+                                Text(designDate(p.paymentDate)),
+                                Text(p.notes ?? 'دفعة من العميل'),
+                                Text(
+                                  p.formattedAmount,
+                                  style: const TextStyle(color: designGreen),
+                                ),
+                              ],
+                            )
+                            .toList(),
+                      ),
+                    if (tab == 2)
+                      DesignTable(
+                        headers: const ['التاريخ', 'النوع', 'الوصف', 'المبلغ'],
+                        rows: movements
+                            .map(
+                              (m) => <Widget>[
+                                Text(designDate(m.$1)),
+                                DesignPill(m.$2),
+                                Text(m.$3),
+                                Text(designMoney(m.$4)),
+                              ],
+                            )
+                            .toList(),
+                      ),
+                    if ((tab == 0 && filteredInvoices.isEmpty) ||
+                        (tab == 1 && payments.isEmpty) ||
+                        (tab == 2 && movements.isEmpty))
+                      const Padding(
+                        padding: EdgeInsets.all(40),
+                        child: Text('لا توجد حركات مسجلة'),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        runSpacing: 10,
+                        spacing: 16,
+                        children: [
+                          Text(
+                            '${tab == 1 ? payments.length : invoices.length} ${tab == 1 ? 'دفعات' : 'فواتير'}',
+                            style: const TextStyle(color: designMuted),
+                          ),
+                          Text(
+                            'الإجمالي  ${tab == 1 ? balance?.formattedPayments ?? '—' : balance?.formattedInvoiced ?? '—'}',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              DesignPanel(
+                title: 'آخر الحركات',
+                child: DesignTable(
+                  headers: const ['التاريخ', 'النوع', 'الوصف', 'المبلغ'],
+                  rows: movements
+                      .take(4)
+                      .map(
+                        (m) => <Widget>[
+                          Text(designDate(m.$1)),
+                          DesignPill(
+                            m.$2,
+                            color: m.$2 == 'دفعة' ? designGreen : designMuted,
+                          ),
+                          Text(m.$3),
+                          Text(
+                            designMoney(m.$4),
+                            style: TextStyle(
+                              color: m.$2 == 'دفعة' ? designGreen : null,
+                            ),
+                          ),
+                        ],
+                      )
+                      .toList(),
                 ),
               ),
             ],
           );
-        }),
-        floatingActionButton: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            FloatingActionButton.small(
-              heroTag: 'fab_payment',
-              onPressed: () => Get.toNamed(
-                AppRoutes.paymentCreate,
-                arguments: {'customer_id': customerId},
+          final side = Column(
+            children: [
+              DesignPanel(
+                title: 'الأقساط المستحقة',
+                child: Column(
+                  children: [
+                    for (final due
+                        in data.dues
+                            .where(
+                              (d) =>
+                                  d.customerId == customerId &&
+                                  d.remainingMinor > 0,
+                            )
+                            .take(5))
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Wrap(
+                          spacing: 16,
+                          children: [
+                            Text(designDate(due.date)),
+                            Text(
+                              designMoney(due.remainingMinor),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: due.overdueAt(DateTime.now())
+                                    ? Colors.red
+                                    : null,
+                              ),
+                            ),
+                            DesignPill(
+                              due.overdueAt(DateTime.now()) ? 'متأخر' : 'قادم',
+                              color: due.overdueAt(DateTime.now())
+                                  ? Colors.red
+                                  : designGreen,
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (!data.dues.any(
+                      (d) => d.customerId == customerId && d.remainingMinor > 0,
+                    ))
+                      const Padding(
+                        padding: EdgeInsets.all(30),
+                        child: Text('لا توجد أقساط مستحقة'),
+                      ),
+                  ],
+                ),
               ),
-              child: const Icon(Icons.payments_outlined),
-            ),
-            const SizedBox(height: 8),
-            FloatingActionButton.extended(
-              heroTag: 'fab_invoice',
-              onPressed: () => Get.toNamed(
-                AppRoutes.invoiceCreate,
-                arguments: {'customer_id': customerId},
+              const SizedBox(height: 18),
+              DesignPanel(
+                title: 'بيانات العميل',
+                action: TextButton(
+                  onPressed: () => Get.toNamed(
+                    AppRoutes.customerCreate,
+                    arguments: {'id': customerId, 'edit': true},
+                  ),
+                  child: const Text('تعديل البيانات'),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: [
+                      _Info(
+                        Icons.phone_outlined,
+                        'رقم الهاتف',
+                        customer.phone ?? '—',
+                      ),
+                      _Info(
+                        Icons.calendar_month_outlined,
+                        'تاريخ إضافة العميل',
+                        designDate(customer.createdAt),
+                      ),
+                      _Info(
+                        Icons.notes_outlined,
+                        'ملاحظات',
+                        customer.notes ?? '—',
+                      ),
+                      if (balance != null)
+                        _Info(
+                          Icons.discount_outlined,
+                          'الخصومات',
+                          balance.formattedDiscounts,
+                        ),
+                    ],
+                  ),
+                ),
               ),
-              icon: const Icon(Icons.receipt_long_outlined),
-              label: Text('invoice_create'.tr),
+            ],
+          );
+          return ListView(
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).width < 600 ? 16 : 30,
             ),
-          ],
-        ),
+            children: [
+              Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () => Get.back(),
+                    icon: const Icon(Icons.chevron_right),
+                    label: const Text('العملاء / حساب العميل'),
+                  ),
+                  const Spacer(),
+                  const SyncStatusBadge(),
+                ],
+              ),
+              const SizedBox(height: 12),
+              DesignHeader(
+                title: customer.name,
+                subtitle: customer.phone,
+                actions: [
+                  DesignAction(
+                    'تسجيل دفعة',
+                    Icons.add,
+                    () => customerAction(AppRoutes.paymentCreate, customerId),
+                    primary: true,
+                  ),
+                  DesignAction(
+                    'فاتورة جديدة',
+                    Icons.description_outlined,
+                    () => customerAction(AppRoutes.invoiceCreate, customerId),
+                  ),
+                  DesignAction('كشف حساب', Icons.print_outlined, statement),
+                ],
+              ),
+              DesignStats(
+                children: [
+                  DesignStat(
+                    'إجمالي الفواتير',
+                    balance?.formattedInvoiced ?? '—',
+                    Icons.description_outlined,
+                  ),
+                  DesignStat(
+                    'إجمالي المدفوع',
+                    balance?.formattedPayments ?? '—',
+                    Icons.payment_outlined,
+                  ),
+                  DesignStat(
+                    balance?.hasCredit == true
+                        ? 'رصيد دائن للعميل'
+                        : 'المتبقي على العميل',
+                    balance?.formattedOutstanding ?? '—',
+                    Icons.bar_chart,
+                    highlight: true,
+                  ),
+                  DesignStat(
+                    'منها متأخر',
+                    designMoney(
+                      data.dues
+                          .where(
+                            (d) =>
+                                d.customerId == customerId &&
+                                d.overdueAt(DateTime.now()),
+                          )
+                          .fold<int>(0, (sum, d) => sum + d.remainingMinor),
+                    ),
+                    Icons.access_time,
+                    color: Colors.red,
+                    highlight: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              LayoutBuilder(
+                builder: (context, box) => box.maxWidth >= 1050
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 2, child: main),
+                          const SizedBox(width: 18),
+                          Expanded(child: side),
+                        ],
+                      )
+                    : Column(
+                        children: [main, const SizedBox(height: 18), side],
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, box) => box.maxWidth >= 600
+            ? Row(
+                children: [
+                  DesignSidebar(
+                    selected: 1,
+                    onSelect: (i) =>
+                        Get.offAllNamed(AppRoutes.home, arguments: {'tab': i}),
+                  ),
+                  Expanded(child: body),
+                ],
+              )
+            : body,
       ),
     );
   }
 }
 
-class _BalanceHeader extends StatelessWidget {
-  const _BalanceHeader({required this.balance});
-  final CustomerBalanceSummary? balance;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final b = balance;
-    return Container(
-      width: double.infinity,
-      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: b == null
-          ? const SizedBox.shrink()
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _Stat(
-                  label: 'balance_invoiced'.tr,
-                  value: b.formattedInvoiced,
-                ),
-                _Stat(
-                  label: 'balance_paid'.tr,
-                  value: b.formattedPayments,
-                ),
-                _Stat(
-                  label: b.hasCredit ? 'balance_credit'.tr : 'balance_outstanding'.tr,
-                  value: b.formattedOutstanding,
-                  valueColor: b.hasCredit
-                      ? Colors.green
-                      : (b.outstandingMinor > 0 ? theme.colorScheme.error : null),
-                ),
-              ],
-            ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value, this.valueColor});
+class _Info extends StatelessWidget {
+  const _Info(this.icon, this.label, this.value);
+  final IconData icon;
   final String label;
   final String value;
-  final Color? valueColor;
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 18),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+    ),
+    child: Row(
       children: [
-        Text(value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: valueColor,
-            )),
-        const SizedBox(height: 2),
-        Text(label,
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Icon(icon, color: designMuted, size: 22),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(color: designMuted)),
+        const SizedBox(width: 16),
+        Expanded(child: Text(value, textAlign: TextAlign.end)),
       ],
-    );
-  }
-}
-
-// ── Stub tabs — replaced by invoice/payment views wired in Phase 2 ───────────
-
-class _InvoicesTab extends StatelessWidget {
-  const _InvoicesTab();
-  @override
-  Widget build(BuildContext context) {
-    final args = Get.arguments as Map<String, dynamic>?;
-    final customerId = args?['id'] as String? ?? '';
-    return InvoiceListView(customerId: customerId);
-  }
-}
-
-class _PaymentsTab extends StatelessWidget {
-  const _PaymentsTab();
-  @override
-  Widget build(BuildContext context) {
-    final args = Get.arguments as Map<String, dynamic>?;
-    final customerId = args?['id'] as String? ?? '';
-    return PaymentsListView(customerId: customerId);
-  }
+    ),
+  );
 }

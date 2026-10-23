@@ -70,3 +70,31 @@ A negative result means **advance/customer credit** if negative balances are per
 - Discount before/after tax, invoice status transitions, multiple currencies.
 - Overpayments, installment allocations, multiple cashiers/permissions.
 - Historical data migration from the web version without modifying past totals.
+
+## Approved installment implementation (2026-10-23)
+The user approved automatic settlement of the oldest due first. The new local
+projection sorts dated obligations by due date, then stable invoice ID. Legacy
+posted credit invoices participate as one obligation at their due/invoice date
+so their debt cannot disappear from the account projection.
+
+- Invoice and optional upfront payment are committed with terms, ledger events,
+  item snapshots and outbox records in one local transaction.
+- Cash invoices record a full customer-level receipt; credit/installment
+  invoices may record a zero upfront amount.
+- Installment principal is the invoice net minus the actual upfront receipt.
+  Upfront receipts are not applied a second time by the later FIFO projection.
+- General customer payments/credits settle the oldest obligations first; no
+  second customer debt is posted for the schedule and no payment is attached to
+  a selected invoice in the payment form.
+- Split principal in integer minor units; remaining piasters go in the last
+  installment. Dates preserve the first due date's day with month-end clamping.
+- Current overdue means a positive remaining obligation before the device's
+  current local business date; a due today is not marked overdue. Devices must
+  use the intended business timezone (Cairo for the current deployment).
+- Account statements read the immutable ledger, include opening balance before
+  the period and all entries through the inclusive end date. Negative running
+  balances are shown as customer credit. Draft invoices are excluded naturally
+  because they do not have posted charge events.
+
+Cloud synchronization of this new metadata remains disabled by default pending
+compatibility review with the old site's JSON document contract.

@@ -87,3 +87,11 @@
 - Tested platforms
 - Unresolved issues, risks, package gaps
 - Request approval to begin next phase
+
+## Scope approved by user on 2026-10-23
+The current explicit task covers UI implementation, invoice/installment/payment
+flows with FIFO allocation, local account statements, settings, a protected
+admin dashboard, QR-login preparation and download/landing integration artifacts
+inside the NEW elnotaapp repository. This supersedes the stale proposed-phase
+header only for that requested scope. It does not authorize changing the old
+elnota repository or deploying migrations to the shared production database.

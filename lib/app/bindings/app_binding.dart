@@ -43,14 +43,18 @@ Future<void> initServices() async {
   await GetStorage.init();
   Get.put<ThemeService>(ThemeService(), permanent: true);
   Get.put<LocaleService>(LocaleService(), permanent: true);
-  // Open database and attach DAO.
+  final supabase = Get.put<SupabaseService>(SupabaseService(), permanent: true);
+  await supabase.init(
+    url: const String.fromEnvironment('SUPABASE_URL'),
+    anonKey: const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY'),
+  );
+  final userId = supabase.client?.auth.currentUser?.id;
   final dbSvc = Get.put<DatabaseService>(DatabaseService(), permanent: true);
-  final db = await AppDatabase.open();
-  dbSvc.attach(db);
-
-  // Cloud sync & connectivity services
+  final db = await AppDatabase.open(
+    name: userId == null ? null : 'elnota_$userId.db',
+  );
+  dbSvc.attach(db, accountId: userId);
   Get.put<ConnectivityService>(ConnectivityService(), permanent: true);
-  Get.put<SupabaseService>(SupabaseService(), permanent: true);
   Get.put<AuthService>(AuthService(), permanent: true);
   Get.put<SyncService>(SyncService(), permanent: true);
 }

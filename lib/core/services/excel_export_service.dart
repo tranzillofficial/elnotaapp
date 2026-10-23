@@ -1,6 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:excel/excel.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../utils/money_utils.dart';
 import '../../features/customers/models/customer_model.dart';
@@ -32,7 +31,9 @@ class ExcelExportService {
         TextCellValue(c.name),
         TextCellValue(c.phone ?? ''),
         TextCellValue(c.notes ?? ''),
-        TextCellValue('${c.createdAt.year}-${c.createdAt.month}-${c.createdAt.day}'),
+        TextCellValue(
+          '${c.createdAt.year}-${c.createdAt.month}-${c.createdAt.day}',
+        ),
       ]);
     }
 
@@ -57,7 +58,9 @@ class ExcelExportService {
         TextCellValue(MoneyUtils.formatMinorNoSymbol(inv.totalMinor)),
         TextCellValue(MoneyUtils.formatMinorNoSymbol(inv.discountMinor)),
         TextCellValue(MoneyUtils.formatMinorNoSymbol(inv.netMinor)),
-        TextCellValue('${inv.invoiceDate.year}-${inv.invoiceDate.month}-${inv.invoiceDate.day}'),
+        TextCellValue(
+          '${inv.invoiceDate.year}-${inv.invoiceDate.month}-${inv.invoiceDate.day}',
+        ),
         TextCellValue(inv.notes ?? ''),
       ]);
     }
@@ -82,13 +85,17 @@ class ExcelExportService {
     );
     if (bytes == null) return;
 
-    final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/$fileName');
-    await file.writeAsBytes(bytes);
-
     await SharePlus.instance.share(
       ShareParams(
-        files: [XFile(file.path)],
+        files: [
+          XFile.fromData(
+            Uint8List.fromList(bytes),
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            name: fileName,
+          ),
+        ],
+        fileNameOverrides: [fileName],
         subject: 'ElNota Accounting Export',
       ),
     );

@@ -23,13 +23,25 @@ class AppDatabase extends GeneratedDatabase {
   @override
   int get schemaVersion => AppConstants.dbVersion;
 
-  static QueryExecutor _openConnection() {
-    return driftDatabase(name: AppConstants.dbFileName);
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (_) => AppDao(this).createTables(),
+    onUpgrade: (_, from, to) => AppDao(this).createTables(),
+  );
+
+  static QueryExecutor _openConnection(String? name) {
+    return driftDatabase(
+      name: name ?? AppConstants.dbFileName,
+      web: DriftWebOptions(
+        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+        driftWorker: Uri.parse('drift_worker.js'),
+      ),
+    );
   }
 
   /// Factory that also runs PRAGMA setup.
-  static Future<AppDatabase> open() async {
-    final db = AppDatabase(_openConnection());
+  static Future<AppDatabase> open({String? name}) async {
+    final db = AppDatabase(_openConnection(name));
     // WAL mode + foreign keys
     await db.customStatement('PRAGMA journal_mode=WAL');
     await db.customStatement('PRAGMA foreign_keys=ON');
@@ -43,11 +55,25 @@ class AppDatabase extends GeneratedDatabase {
 class DatabaseService extends GetxService {
   static DatabaseService get to => Get.find<DatabaseService>();
 
-  late final AppDatabase db;
-  late final AppDao dao;
+  late AppDatabase db;
+  late AppDao dao;
+
+  String? _accountId;
+  Future<void> switchAccount(String? userId) async {
+    if (_accountId == userId) return;
+    await db.close();
+    db = await AppDatabase.open(
+      name: userId == null
+          ? null
+          : 'elnota_${userId.replaceAll(RegExp(r"[^a-zA-Z0-9_-]"), "")}.db',
+    );
+    dao = AppDao(db);
+    _accountId = userId;
+  }
 
   /// Called from initServices after await.
-  void attach(AppDatabase database) {
+  void attach(AppDatabase database, {String? accountId}) {
+    _accountId = accountId;
     db = database;
     dao = AppDao(database);
   }

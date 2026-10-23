@@ -58,8 +58,8 @@ void main() {
   });
 
   group('Phase 1 — Constants', () {
-    test('dbVersion is 1', () {
-      expect(AppConstants.dbVersion, equals(1));
+    test('dbVersion is 2', () {
+      expect(AppConstants.dbVersion, equals(2));
     });
 
     test('minorUnitFactor is 100', () {
@@ -99,8 +99,11 @@ void main() {
         AppRoutes.products,
         AppRoutes.reports,
       ];
-      expect(all.toSet().length, equals(all.length),
-          reason: 'Duplicate route strings found');
+      expect(
+        all.toSet().length,
+        equals(all.length),
+        reason: 'Duplicate route strings found',
+      );
     });
   });
 

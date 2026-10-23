@@ -1,164 +1,247 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/database/database_impl.dart';
+import '../../../core/widgets/accounting_form_frame.dart';
+import '../../../core/widgets/design_widgets.dart';
+import '../../../core/utils/money_utils.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../controllers/add_payment_controller.dart';
 import '../repositories/payment_repository.dart';
 
 class AddPaymentView extends StatefulWidget {
   const AddPaymentView({super.key});
-
   @override
   State<AddPaymentView> createState() => _AddPaymentViewState();
 }
 
 class _AddPaymentViewState extends State<AddPaymentView> {
   late final AddPaymentController ctrl;
-  late final String customerId;
-  String? _selectedCustomerId;
-
+  String? customerId;
   @override
   void initState() {
     super.initState();
-    final args = Get.arguments as Map<String, dynamic>?;
-    customerId = args?['customer_id'] as String? ?? '';
-    _selectedCustomerId = customerId.isNotEmpty ? customerId : null;
+    customerId =
+        (Get.arguments as Map<String, dynamic>?)?['customer_id'] as String?;
     if (!Get.isRegistered<AddPaymentController>()) {
-      if (!Get.isRegistered<PaymentRepository>()) {
-        Get.lazyPut<PaymentRepository>(() => PaymentRepository());
-      }
-      Get.lazyPut<AddPaymentController>(
-        () => AddPaymentController(repo: Get.find<PaymentRepository>()),
-      );
+      Get.put(AddPaymentController(repo: PaymentRepository()));
     }
     ctrl = Get.find<AddPaymentController>();
+    ctrl.amountCtrl.addListener(_amountChanged);
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: ctrl.paymentDate.value,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-    );
-    if (picked != null) {
-      ctrl.paymentDate.value = picked;
-    }
+  void _amountChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  void dispose() {
+    ctrl.amountCtrl.removeListener(_amountChanged);
+    super.dispose();
+  }
 
-    return Scaffold(
-      appBar: AppBar(title: Text('payment_add'.tr)),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (customerId.isEmpty) ...[
-              StreamBuilder<List<CustomerRow>>(
-                stream: DatabaseService.to.dao.watchCustomers(),
-                builder: (context, snapshot) {
-                  final customers = snapshot.data ?? [];
-                  return DropdownButtonFormField<String>(
-                    value: _selectedCustomerId,
-                    decoration: InputDecoration(
-                      labelText: 'customer_name'.tr,
-                      prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+  @override
+  Widget build(BuildContext context) => AccountDataBuilder(
+    builder: (context, data) {
+      final customer = data.customers
+          .where((c) => c.id == customerId)
+          .firstOrNull;
+      final balance = data.balances[customerId];
+      final amount = MoneyUtils.parseToMinor(ctrl.amountCtrl.text) ?? 0;
+      return Obx(
+        () => AccountingFormFrame(
+          title: 'تسجيل دفعة',
+          width: 520,
+          busy: ctrl.isSaving.value,
+          footer: Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: ctrl.isSaving.value || balance == null
+                      ? null
+                      : () async {
+                          if (customerId == null) {
+                            showErrorSnack('اختر العميل أولاً');
+                            return;
+                          }
+                          if (await ctrl.submit(customerId!)) {
+                            Get.back(result: true);
+                          }
+                        },
+                  child: Text(
+                    ctrl.isSaving.value ? 'جارٍ الحفظ…' : 'حفظ الدفعة',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: ctrl.isSaving.value ? null : () => Get.back(),
+                  child: const Text('إلغاء'),
+                ),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (customer == null)
+                DropdownButtonFormField<String>(
+                  initialValue: customerId,
+                  decoration: const InputDecoration(labelText: 'العميل'),
+                  items: data.customers
+                      .map(
+                        (c) =>
+                            DropdownMenuItem(value: c.id, child: Text(c.name)),
+                      )
+                      .toList(),
+                  onChanged: ctrl.isSaving.value
+                      ? null
+                      : (v) => setState(() => customerId = v),
+                )
+              else
+                DesignPanel(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        DesignAvatar(customer.name),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                customer.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 17,
+                                ),
+                              ),
+                              const Text(
+                                'دفعة على حساب العميل',
+                                style: TextStyle(color: designMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    hint: const Text('اختر العميل...'),
-                    items: customers.map((c) {
-                      return DropdownMenuItem<String>(
-                        value: c.id,
-                        child: Text(c.name),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      setState(() => _selectedCustomerId = val);
-                    },
-                  );
-                },
+                  ),
+                ),
+              const SizedBox(height: 12),
+              _BalanceStrip(
+                'المتبقي قبل الدفع',
+                balance == null ? '—' : designMoney(balance.outstandingMinor),
+              ),
+              const SizedBox(height: 20),
+              LabeledField(
+                'مبلغ الدفعة',
+                child: TextField(
+                  controller: ctrl.amountCtrl,
+                  autofocus: true,
+                  enabled: !ctrl.isSaving.value,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: const InputDecoration(
+                    suffixText: 'ج.م',
+                    hintText: '0.00',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                balance == null
+                    ? 'جارٍ تحميل الرصيد…'
+                    : '${balance.outstandingMinor - amount < 0 ? 'رصيد لصالح العميل بعد الدفع' : 'المتبقي بعد الدفع'}: ${designMoney(balance.outstandingMinor - amount)}',
+                style: const TextStyle(color: designGreen),
+              ),
+              const SizedBox(height: 20),
+              FormColumns(
+                children: [
+                  LabeledField(
+                    'تاريخ الدفع',
+                    child: OutlinedButton.icon(
+                      onPressed: ctrl.isSaving.value
+                          ? null
+                          : () async {
+                              final d = await showDatePicker(
+                                context: context,
+                                initialDate: ctrl.paymentDate.value,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2100),
+                              );
+                              if (d != null) ctrl.paymentDate.value = d;
+                            },
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      label: Text(designDate(ctrl.paymentDate.value)),
+                    ),
+                  ),
+                  LabeledField(
+                    'طريقة الدفع',
+                    child: DropdownButtonFormField<String>(
+                      initialValue: 'cash',
+                      items: const [
+                        DropdownMenuItem(value: 'cash', child: Text('نقدي')),
+                      ],
+                      onChanged: ctrl.isSaving.value ? null : (_) {},
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              LabeledField(
+                'ملاحظة (اختياري)',
+                child: TextField(
+                  controller: ctrl.notesCtrl,
+                  enabled: !ctrl.isSaving.value,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    hintText: 'أضف ملاحظة للدفعة',
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
+              const Text(
+                'تُخصم الدفعة من إجمالي حساب العميل، وتُحفظ محليًا حتى المزامنة.',
+                style: TextStyle(color: designMuted, fontSize: 12),
+              ),
             ],
-            TextField(
-              controller: ctrl.amountCtrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              decoration: InputDecoration(
-                labelText: 'payment_amount'.tr,
-                hintText: '0.00',
-                suffixText: 'EGP',
-                prefixIcon: const Icon(Icons.attach_money),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Obx(() {
-              final d = ctrl.paymentDate.value;
-              final formatted =
-                  '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-              return InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(12),
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'payment_date'.tr,
-                    prefixIcon: const Icon(Icons.calendar_today_outlined),
-                  ),
-                  child: Text(formatted, style: theme.textTheme.bodyLarge),
-                ),
-              );
-            }),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl.notesCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'payment_notes'.tr,
-                prefixIcon: const Icon(Icons.notes),
-              ),
-            ),
-            const SizedBox(height: 28),
-            Obx(
-              () => ElevatedButton(
-                onPressed: ctrl.isSaving.value
-                    ? null
-                    : () async {
-                        final effectiveId = customerId.isNotEmpty
-                            ? customerId
-                            : _selectedCustomerId;
-                        if (effectiveId == null || effectiveId.isEmpty) {
-                          showErrorSnack('الرجاء اختيار العميل أولاً');
-                          return;
-                        }
-                        final ok = await ctrl.submit(effectiveId);
-                        if (ok) {
-                          Get.back(result: true);
-                        }
-                      },
-                child: ctrl.isSaving.value
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text('action_confirm'.tr),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
+
+class _BalanceStrip extends StatelessWidget {
+  const _BalanceStrip(this.label, this.value);
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: designGreen.withValues(alpha: .06),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 20,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+        Text(
+          value,
+          style: const TextStyle(
+            color: designGreen,
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
 }

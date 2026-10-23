@@ -39,18 +39,24 @@ class MoneyUtils {
   /// Parse a string like '1500.25' or '1500' into minor units.
   /// Returns null if input is invalid.
   static int? parseToMinor(String input) {
-    final clean = input.trim().replaceAll(',', '');
-    if (clean.isEmpty) return null;
-    final parts = clean.split('.');
-    if (parts.length > 2) return null;
-    final whole = int.tryParse(parts[0]);
-    if (whole == null) return null;
-    int frac = 0;
-    if (parts.length == 2) {
-      final fracStr = parts[1].length > 2 ? parts[1].substring(0, 2) : parts[1].padRight(2, '0');
-      frac = int.tryParse(fracStr) ?? 0;
+    var clean = input.trim();
+    for (var i = 0; i < 10; i++) {
+      clean = clean
+          .replaceAll(String.fromCharCode(0x0660 + i), '$i')
+          .replaceAll(String.fromCharCode(0x06F0 + i), '$i');
     }
-    return whole * _factor + frac;
+    clean = clean.replaceAll('٫', '.').replaceAll('٬', ',');
+    if (clean.length > 32) return null;
+    final match = RegExp(
+      r'^([+-]?)([0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.([0-9]{0,2}))?$',
+    ).firstMatch(clean);
+    if (match == null) return null;
+    final whole = BigInt.parse(match.group(2)!.replaceAll(',', ''));
+    final fraction = BigInt.parse((match.group(3) ?? '').padRight(2, '0'));
+    final amount = whole * BigInt.from(_factor) + fraction;
+    // Flutter Web integer arithmetic must remain within JavaScript's exact range.
+    if (amount > BigInt.parse('9007199254740991')) return null;
+    return (match.group(1) == '-' ? -amount : amount).toInt();
   }
 
   static String _addThousands(int n) {

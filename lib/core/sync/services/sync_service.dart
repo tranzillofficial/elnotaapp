@@ -7,6 +7,10 @@ import '../../services/supabase_service.dart';
 import '../models/sync_operation.dart';
 
 class SyncService extends GetxService {
+  static const ledgerCloudEnabled = bool.fromEnvironment(
+    'ENABLE_RELATIONAL_SYNC',
+    defaultValue: false,
+  );
   static SyncService get to => Get.find<SyncService>();
 
   SyncService({AppDao? dao}) : _dao = dao ?? DatabaseService.to.dao;
@@ -42,6 +46,14 @@ class SyncService extends GetxService {
 
   /// Triggers a full push and pull synchronization cycle.
   Future<bool> syncNow() async {
+    if (!ledgerCloudEnabled) {
+      summary.value = SyncSummary(
+        pendingCount: summary.value.pendingCount,
+        lastSuccessAt: summary.value.lastSuccessAt,
+        lastError: 'المزامنة العلائقية غير مفعّلة لحماية بيانات الموقع الحالي',
+      );
+      return false;
+    }
     if (summary.value.isSyncing) return false;
 
     summary.value = SyncSummary(
@@ -58,7 +70,9 @@ class SyncService extends GetxService {
       final now = DateTime.now();
       summary.value = SyncSummary(
         pendingCount: summary.value.pendingCount,
-        lastSuccessAt: (pushSuccess || pullSuccess) ? now : summary.value.lastSuccessAt,
+        lastSuccessAt: (pushSuccess || pullSuccess)
+            ? now
+            : summary.value.lastSuccessAt,
         isSyncing: false,
         lastError: null,
       );
@@ -81,6 +95,7 @@ class SyncService extends GetxService {
 
   /// Pushes pending outbox mutations to the cloud idempotently.
   Future<bool> pushPendingOutbox({int batchSize = 50}) async {
+    if (!ledgerCloudEnabled) return false;
     final rawRows = await _dao.getPendingOutbox(limit: batchSize);
     if (rawRows.isEmpty) return true;
 
@@ -89,13 +104,18 @@ class SyncService extends GetxService {
 
     await _dao.markOutboxSending(opIds);
 
-    final supa = Get.isRegistered<SupabaseService>() ? SupabaseService.to : null;
+    final supa = Get.isRegistered<SupabaseService>()
+        ? SupabaseService.to
+        : null;
     final isOnline = Get.isRegistered<ConnectivityService>()
         ? ConnectivityService.to.isOnline.value
         : false;
 
     // If Supabase client is not ready or offline, return to pending without error
-    if (supa == null || !supa.isInitialized || supa.client == null || !isOnline) {
+    if (supa == null ||
+        !supa.isInitialized ||
+        supa.client == null ||
+        !isOnline) {
       // Revert from sending back to pending
       for (final op in ops) {
         await _dao.markOutboxFailed(
@@ -128,12 +148,14 @@ class SyncService extends GetxService {
         }
       } catch (e) {
         final errStr = e.toString().toLowerCase();
-        final isDuplicate = errStr.contains('duplicate') || errStr.contains('23505');
+        final isDuplicate =
+            errStr.contains('duplicate') || errStr.contains('23505');
         if (isDuplicate) {
           // Idempotency: duplicate operation_id is safely treated as acknowledged
           acknowledged.add(op.operationId);
         } else {
-          final isPermanent = errStr.contains('unauthorized') ||
+          final isPermanent =
+              errStr.contains('unauthorized') ||
               errStr.contains('violates') ||
               errStr.contains('foreign key');
           await _dao.markOutboxFailed(
@@ -154,12 +176,18 @@ class SyncService extends GetxService {
 
   /// Pulls remote delta updates after last recorded cursor.
   Future<bool> pullRemoteChanges() async {
-    final supa = Get.isRegistered<SupabaseService>() ? SupabaseService.to : null;
+    if (!ledgerCloudEnabled) return false;
+    final supa = Get.isRegistered<SupabaseService>()
+        ? SupabaseService.to
+        : null;
     final isOnline = Get.isRegistered<ConnectivityService>()
         ? ConnectivityService.to.isOnline.value
         : false;
 
-    if (supa == null || !supa.isInitialized || supa.client == null || !isOnline) {
+    if (supa == null ||
+        !supa.isInitialized ||
+        supa.client == null ||
+        !isOnline) {
       return false;
     }
 
@@ -172,7 +200,9 @@ class SyncService extends GetxService {
       if (lastCursor != null) {
         filterQuery = filterQuery.gt('cursor', lastCursor);
       }
-      final events = await filterQuery.order('cursor', ascending: true).limit(100);
+      final events = await filterQuery
+          .order('cursor', ascending: true)
+          .limit(100);
 
       if (events.isNotEmpty) {
         final newCursor = events.last['cursor']?.toString();

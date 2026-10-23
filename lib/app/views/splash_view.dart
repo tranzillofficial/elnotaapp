@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import '../../core/services/supabase_service.dart';
+import '../../features/auth/services/device_login_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/utils/app_routes.dart';
@@ -29,9 +32,10 @@ class _SplashViewState extends State<SplashView>
       duration: const Duration(milliseconds: 900),
     );
     _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
-    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
 
     _ctrl.forward();
     _navigateAfterDelay();
@@ -40,7 +44,15 @@ class _SplashViewState extends State<SplashView>
   void _navigateAfterDelay() {
     Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted) {
-        Get.offAllNamed(AppRoutes.home);
+        final loggedIn =
+            Get.isRegistered<SupabaseService>() &&
+            SupabaseService.to.client?.auth.currentSession != null;
+        Get.offAllNamed(
+          kIsWeb && !loggedIn ? AppRoutes.deviceLogin : AppRoutes.home,
+        );
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => DeviceLinkBridge.initialize(),
+        );
       }
     });
   }

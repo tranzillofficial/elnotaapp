@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import '../../../core/database/app_database.dart';
+import '../../../core/sync/services/sync_service.dart';
 import 'package:get/get.dart';
 import '../../../core/services/supabase_service.dart';
 import '../models/user_session.dart';
@@ -9,7 +12,8 @@ class AuthService extends GetxService {
   final RxBool isLoading = false.obs;
 
   bool get isAuthenticated => currentSession.value != null;
-  String get activeWorkspaceId => currentSession.value?.workspaceId ?? 'default';
+  String get activeWorkspaceId =>
+      currentSession.value?.workspaceId ?? 'default';
 
   @override
   void onInit() {
@@ -18,6 +22,23 @@ class AuthService extends GetxService {
   }
 
   void _restoreLocalSession() {
+    final user = Get.isRegistered<SupabaseService>()
+        ? SupabaseService.to.client?.auth.currentUser
+        : null;
+    if (user != null) {
+      currentSession.value = UserSession(
+        userId: user.id,
+        email: user.email ?? '',
+        workspaceId: user.appMetadata['workspace_id'] as String? ?? user.id,
+        workspaceName:
+            user.userMetadata?['workspace_name'] as String? ?? 'النوتة',
+      );
+      return;
+    }
+    if (kIsWeb) {
+      currentSession.value = null;
+      return;
+    }
     // Default local workspace for offline-first accounting
     currentSession.value = const UserSession(
       userId: 'local_user',
@@ -26,6 +47,19 @@ class AuthService extends GetxService {
       workspaceName: 'النوتة - محلي',
       role: 'owner',
     );
+  }
+
+  Future<void> acceptServerSession() async {
+    final user = SupabaseService.to.client?.auth.currentUser;
+    if (user == null) throw StateError('Authenticated session required');
+    if (Get.isRegistered<DatabaseService>()) {
+      if (Get.isRegistered<SyncService>()) {
+        await Get.delete<SyncService>(force: true);
+      }
+      await DatabaseService.to.switchAccount(user.id);
+      Get.put<SyncService>(SyncService(), permanent: true);
+    }
+    _restoreLocalSession();
   }
 
   Future<bool> signIn({required String email, required String password}) async {
@@ -39,19 +73,10 @@ class AuthService extends GetxService {
         );
         final user = res.user;
         if (user != null) {
-          final wsId = (user.userMetadata?['workspace_id'] as String?) ?? 'default';
-          currentSession.value = UserSession(
-            userId: user.id,
-            email: user.email ?? email,
-            workspaceId: wsId,
-            workspaceName: (user.userMetadata?['workspace_name'] as String?) ?? 'متجري',
-          );
-          if (res.session?.accessToken != null) {
-            await supa.saveSecureToken(res.session!.accessToken);
-          }
+          await acceptServerSession();
           return true;
         }
-      } else {
+      } else if (!kIsWeb) {
         // Local mode fallback
         currentSession.value = UserSession(
           userId: 'local_${email.hashCode}',
@@ -69,7 +94,11 @@ class AuthService extends GetxService {
     }
   }
 
-  Future<bool> signUp({required String email, required String password, required String storeName}) async {
+  Future<bool> signUp({
+    required String email,
+    required String password,
+    required String storeName,
+  }) async {
     isLoading.value = true;
     try {
       final supa = SupabaseService.to;
@@ -81,16 +110,11 @@ class AuthService extends GetxService {
         );
         final user = res.user;
         if (user != null) {
-          final wsId = (user.userMetadata?['workspace_id'] as String?) ?? 'default';
-          currentSession.value = UserSession(
-            userId: user.id,
-            email: user.email ?? email,
-            workspaceId: wsId,
-            workspaceName: storeName,
-          );
+          if (res.session == null) return false;
+          await acceptServerSession();
           return true;
         }
-      } else {
+      } else if (!kIsWeb) {
         currentSession.value = UserSession(
           userId: 'local_${email.hashCode}',
           email: email,
@@ -115,6 +139,13 @@ class AuthService extends GetxService {
         await supa.client!.auth.signOut();
       }
       await supa.clearSecureSession();
+      if (Get.isRegistered<DatabaseService>()) {
+        if (Get.isRegistered<SyncService>()) {
+          await Get.delete<SyncService>(force: true);
+        }
+        await DatabaseService.to.switchAccount(null);
+        Get.put<SyncService>(SyncService(), permanent: true);
+      }
       _restoreLocalSession();
     } finally {
       isLoading.value = false;

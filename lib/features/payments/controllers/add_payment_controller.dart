@@ -7,7 +7,7 @@ import '../repositories/payment_repository.dart';
 
 class AddPaymentController extends GetxController {
   AddPaymentController({PaymentRepository? repo})
-      : _repo = repo ?? PaymentRepository();
+    : _repo = repo ?? PaymentRepository();
 
   final PaymentRepository _repo;
 
@@ -20,6 +20,7 @@ class AddPaymentController extends GetxController {
   final RxBool isSaving = false.obs;
 
   Future<bool> submit(String customerId) async {
+    if (isSaving.value) return false;
     final amountMinor = MoneyUtils.parseToMinor(amountCtrl.text) ?? 0;
     if (amountMinor <= 0) {
       showErrorSnack('validation_amount_required'.tr);
