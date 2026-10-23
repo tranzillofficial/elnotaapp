@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/sync/services/sync_service.dart';
 import 'package:get/get.dart';
@@ -11,6 +12,7 @@ class AuthService extends GetxService {
 
   final Rx<UserSession?> currentSession = Rx<UserSession?>(null);
   final RxBool isLoading = false.obs;
+  final lastError = Rxn<String>();
 
   bool get isAuthenticated => currentSession.value != null;
   String get activeWorkspaceId =>
@@ -77,6 +79,7 @@ class AuthService extends GetxService {
 
   Future<bool> signIn({required String email, required String password}) async {
     if (AppRuntime.demo) return false;
+    lastError.value = null;
     isLoading.value = true;
     try {
       final supa = SupabaseService.to;
@@ -91,8 +94,18 @@ class AuthService extends GetxService {
           return true;
         }
       }
+      lastError.value = 'خدمة تسجيل الدخول غير مُعدّة على هذه النسخة';
+      return false;
+    } on AuthException catch (e) {
+      lastError.value = e.code == 'invalid_credentials'
+          ? 'البريد أو كلمة المرور غير صحيحة'
+          : e.code == 'email_not_confirmed'
+          ? 'أكد البريد الإلكتروني قبل تسجيل الدخول'
+          : 'تعذر تسجيل الدخول. راجع البيانات وحاول مرة أخرى';
       return false;
     } catch (_) {
+      lastError.value =
+          'تعذر الاتصال بخدمة الحساب. تحقق من الإنترنت وحاول مرة أخرى';
       return false;
     } finally {
       isLoading.value = false;

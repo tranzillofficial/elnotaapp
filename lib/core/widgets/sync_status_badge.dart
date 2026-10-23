@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'app_toast.dart';
 import '../network/connectivity_service.dart';
 import '../sync/services/sync_service.dart';
+import '../utils/app_runtime.dart';
 
 /// Interactive AppBar or Header badge showing real-time sync status.
 class SyncStatusBadge extends StatelessWidget {
@@ -10,6 +11,11 @@ class SyncStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AppRuntime.demo)
+      return const Tooltip(
+        message: 'ديمو — البيانات محلية فقط',
+        child: Icon(Icons.science_outlined, color: Color(0xFF00845B)),
+      );
     if (!Get.isRegistered<SyncService>()) {
       return const SizedBox.shrink();
     }

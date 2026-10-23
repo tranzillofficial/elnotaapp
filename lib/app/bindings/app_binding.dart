@@ -71,7 +71,7 @@ Future<void> initServices() async {
   );
   dbSvc.attach(db, accountId: userId);
   if (AppRuntime.demo) {
-    await DemoData.seed(dbSvc.dao);
+    await db.transaction(() => DemoData.seed(dbSvc.dao));
     final access = AccountAccessService(automaticallyRefresh: false);
     access.access.value = const AccountAccess(
       active: true,

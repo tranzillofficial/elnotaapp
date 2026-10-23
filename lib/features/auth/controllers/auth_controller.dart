@@ -15,6 +15,7 @@ class AuthController extends GetxController {
   AuthService get auth => AuthService.to;
 
   Future<void> submit() async {
+    if (auth.isLoading.value) return;
     final email = emailCtrl.text.trim();
     final password = passwordCtrl.text;
 
@@ -44,7 +45,10 @@ class AuthController extends GetxController {
     if (success) {
       Get.offAllNamed(AppRoutes.home);
     } else {
-      showErrorSnack('status_error'.tr);
+      showErrorSnack(
+        auth.lastError.value ??
+            'تعذر إكمال الطلب. تحقق من البيانات وتأكيد البريد',
+      );
     }
   }
 

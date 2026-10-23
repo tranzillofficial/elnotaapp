@@ -3,6 +3,7 @@ import '../../auth/views/device_login_view.dart';
 import '../../auth/views/device_scanner_view.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/services/account_access_service.dart';
+import '../../../core/utils/app_runtime.dart';
 import '../../../core/services/daily_backup_service.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -440,9 +441,24 @@ class _SettingsViewState extends State<SettingsView> {
                   style: const TextStyle(color: designMuted),
                 ),
                 TextButton.icon(
-                  onPressed: () => Get.toNamed(AppRoutes.login),
+                  onPressed: AppRuntime.demo
+                      ? null
+                      : () async {
+                          if (auth?.isAuthenticated == true) {
+                            await auth!.signOut();
+                            Get.offAllNamed(AppRoutes.login);
+                          } else {
+                            Get.toNamed(AppRoutes.login);
+                          }
+                        },
                   icon: const Icon(Icons.logout),
-                  label: const Text('الحساب وتسجيل الدخول'),
+                  label: Text(
+                    AppRuntime.demo
+                        ? 'الديمو لا يحتاج تسجيل دخول'
+                        : auth?.isAuthenticated == true
+                        ? 'تسجيل الخروج'
+                        : 'الحساب وتسجيل الدخول',
+                  ),
                 ),
               ],
             ),
