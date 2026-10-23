@@ -1,4 +1,4 @@
-type Release = { platform: string; version: string; distribution: string; url: string };
+type Release = { platform: string; version: string; distribution: string; url: string; notes?: string };
 
 function safeUrl(release: Release): boolean {
   try {
@@ -17,7 +17,7 @@ async function releases(): Promise<Release[]> {
   const key = process.env.RELEASE_SUPABASE_PUBLISHABLE_KEY;
   if (!base || !key) return [];
   try {
-    const response = await fetch(`${base}/rest/v1/elnota_app_releases?published=eq.true&select=platform,version,distribution,url`, {
+    const response = await fetch(`${base}/rest/v1/elnota_app_releases?published=eq.true&select=platform,version,distribution,url,notes`, {
       headers: { apikey: key }, next: { revalidate: 60 }, signal: AbortSignal.timeout(4000),
     });
     if (!response.ok) return [];
@@ -37,7 +37,7 @@ export default async function Downloads() {
     ].map(platform => {
       const release = rows.find(row => row.platform === platform.id);
       return <article className="download" key={platform.id}><span className="platform" aria-hidden="true">{platform.icon}</span><h3>{platform.name}</h3><p>{platform.description}</p>
-        {release ? <><a className="button" href={release.url} rel="noopener noreferrer">{release.distribution === 'store' ? 'افتح صفحة التطبيق في المتجر' : platform.label}</a><small>الإصدار {release.version}</small></> : <><span className="pending">{platform.id === 'ios' ? 'قريبًا' : 'ملف الإصدار قيد التجهيز'}</span><small>{platform.id === 'ios' ? 'هنعلن هنا بمجرد توفر التطبيق على App Store.' : 'رابط التحميل يظهر هنا بعد نشر الإصدار من الإدارة.'}</small></>}
+        {release ? <><a className="button" href={release.url} rel="noopener noreferrer">{release.distribution === 'store' ? 'افتح صفحة التطبيق في المتجر' : platform.label}</a><small>الإصدار {release.version}</small>{release.notes && <small>{release.notes}</small>}</> : <><span className="pending">{platform.id === 'ios' ? 'قريبًا' : 'ملف الإصدار قيد التجهيز'}</span><small>{platform.id === 'ios' ? 'هنعلن هنا بمجرد توفر التطبيق على App Store.' : 'رابط التحميل يظهر هنا بعد نشر الإصدار من الإدارة.'}</small></>}
         {platform.id === 'windows' && <small>يتطلب Windows 64-bit. أجهزة 32-bit تستخدم نسخة الويب.</small>}
       </article>;
     })}</div></div></section>;

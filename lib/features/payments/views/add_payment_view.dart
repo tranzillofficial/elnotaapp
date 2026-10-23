@@ -1,3 +1,4 @@
+import '../../../core/widgets/customer_search_field.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/accounting_form_frame.dart';
@@ -84,18 +85,15 @@ class _AddPaymentViewState extends State<AddPaymentView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (customer == null)
-                DropdownButtonFormField<String>(
-                  initialValue: customerId,
-                  decoration: const InputDecoration(labelText: 'العميل'),
-                  items: data.customers
+                CustomerSearchField(
+                  value: customerId,
+                  customers: data.customers
                       .map(
-                        (c) =>
-                            DropdownMenuItem(value: c.id, child: Text(c.name)),
+                        (c) => (id: c.id, name: c.name, phone: c.phone ?? ''),
                       )
                       .toList(),
-                  onChanged: ctrl.isSaving.value
-                      ? null
-                      : (v) => setState(() => customerId = v),
+                  enabled: !ctrl.isSaving.value,
+                  onChanged: (id) => setState(() => customerId = id),
                 )
               else
                 DesignPanel(

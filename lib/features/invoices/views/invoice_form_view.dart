@@ -1,3 +1,4 @@
+import '../../../core/widgets/customer_search_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -108,19 +109,16 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                 children: [
                   LabeledField(
                     'العميل',
-                    child: DropdownButtonFormField<String>(
-                      initialValue: customerId,
-                      isExpanded: true,
-                      hint: const Text('اختر العميل'),
-                      items: data.customers
+                    child: CustomerSearchField(
+                      value: customerId,
+                      customers: data.customers
                           .map(
-                            (c) => DropdownMenuItem(
-                              value: c.id,
-                              child: Text(c.name),
-                            ),
+                            (c) =>
+                                (id: c.id, name: c.name, phone: c.phone ?? ''),
                           )
                           .toList(),
-                      onChanged: (v) => setState(() => customerId = v),
+                      enabled: !ctrl.isSaving.value,
+                      onChanged: (id) => setState(() => customerId = id),
                     ),
                   ),
                   LabeledField(

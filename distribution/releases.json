@@ -1,7 +1,24 @@
 {
   "site": "https://elnota.shop",
-  "webApp": "https://app.elnota.shop",
-  "android": null,
-  "windowsX64": null,
-  "windowsX86": { "supported": false, "alternative": "https://app.elnota.shop" }
+  "webApp": "https://elnotaapp-web-preview.vercel.app",
+  "android": {
+    "version": "1.0.0",
+    "architecture": "arm64",
+    "url": "https://github.com/tranzillofficial/elnotaapp/releases/download/preview-1.0.0-20261024/ElNota-1.0.0-android-arm64.apk",
+    "channel": "preview"
+  },
+  "windowsX64": {
+    "version": "1.0.0",
+    "url": "https://github.com/tranzillofficial/elnotaapp/releases/download/preview-1.0.0-20261024/ElNota-1.0.0-windows-x64.exe",
+    "channel": "preview"
+  },
+  "windowsX86": {
+    "supported": false,
+    "alternative": "https://app.elnota.shop"
+  },
+  "ios": {
+    "status": "coming_soon",
+    "distribution": "store",
+    "url": null
+  }
 }
