@@ -117,13 +117,13 @@ class _ReleaseManagerState extends State<ReleaseManager> {
       var download = url.text.trim();
       if (!store) {
         final extension = file!.extension?.toLowerCase();
-        if (!(platform == 'android' ? ['apk'] : ['exe', 'msi', 'zip']).contains(
+        if (!(platform == 'android' ? ['apk'] : ['exe', 'msi']).contains(
           extension,
         )) {
           throw StateError('نوع الملف غير مناسب للمنصة');
         }
         final path =
-            '$platform/${DateTime.now().microsecondsSinceEpoch}/elnota-${version.text.trim()}.$extension';
+            '$platform/${DateTime.now().microsecondsSinceEpoch}/elnota-${version.text.trim().replaceAll('+', '-')}.$extension';
         await client.storage
             .from('elnota-app-releases')
             .uploadBinary(path, await file!.readAsBytes());
@@ -223,7 +223,7 @@ class _ReleaseManagerState extends State<ReleaseManager> {
                         type: FileType.custom,
                         allowedExtensions: platform == 'android'
                             ? ['apk']
-                            : ['exe', 'msi', 'zip'],
+                            : ['exe', 'msi'],
                       );
                       if (mounted && result.isNotEmpty) {
                         setState(() => file = result.single);
