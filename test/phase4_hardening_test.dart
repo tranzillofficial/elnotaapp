@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:get_storage/get_storage.dart';
-import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elnota/core/services/pdf_service.dart';
 import 'package:elnota/core/services/excel_export_service.dart';

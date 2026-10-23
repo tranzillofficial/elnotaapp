@@ -50,3 +50,11 @@ app.*.map.json
 /android/key.properties
 *.jks
 *.keystore
+
+# Next.js preview application
+**/node_modules/
+**/.next/
+**/.vercel/
+**/*.tsbuildinfo
+**/.env.local
+**/.env.*.local
