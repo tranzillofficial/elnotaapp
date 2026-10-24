@@ -7,7 +7,7 @@ class AppConstants {
 
   // ── App identity ──────────────────────────────────────────────────────────
   static const String appName = 'ElNota';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.4';
 
   // ── Database ───────────────────────────────────────────────────────────────
   static const int dbVersion = 3;

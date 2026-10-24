@@ -1,5 +1,6 @@
 import '../../features/admin/views/admin_dashboard_view.dart';
-import 'package:flutter/foundation.dart';
+import '../../features/auth/services/auth_service.dart';
+import '../../features/auth/views/account_approval_gate.dart';
 import 'package:flutter/widgets.dart';
 import '../../core/services/supabase_service.dart';
 import '../../features/auth/views/device_login_view.dart';
@@ -36,74 +37,78 @@ class AppPages {
     GetPage(name: AppRoutes.deviceLogin, page: () => const DeviceLoginView()),
     GetPage(
       name: AppRoutes.admin,
-      middlewares: [WebSessionGuard()],
+      middlewares: [SessionGuard()],
       page: () => const AdminDashboardView(),
     ),
     // ── Main shell ──────────────────────────────────────────────────────────
     GetPage(
       name: AppRoutes.home,
-      middlewares: [WebSessionGuard()],
-      page: () => const HomeShellView(),
+      middlewares: [SessionGuard()],
+      page: () => const AccountApprovalGate(child: HomeShellView()),
     ),
     GetPage(
       name: AppRoutes.products,
-      middlewares: [WebSessionGuard()],
-      page: () => const HomeShellView(initialIndex: 5),
+      middlewares: [SessionGuard()],
+      page: () =>
+          const AccountApprovalGate(child: HomeShellView(initialIndex: 5)),
     ),
 
     // ── Settings ────────────────────────────────────────────────────────────
     GetPage(
       name: AppRoutes.settings,
-      middlewares: [WebSessionGuard()],
-      page: () => const HomeShellView(initialIndex: 4),
+      middlewares: [SessionGuard()],
+      page: () =>
+          const AccountApprovalGate(child: HomeShellView(initialIndex: 4)),
       binding: SettingsBinding(),
     ),
 
     // ── Customers ───────────────────────────────────────────────────────────
     GetPage(
       name: AppRoutes.customers,
-      middlewares: [WebSessionGuard()],
-      page: () => const HomeShellView(initialIndex: 1),
+      middlewares: [SessionGuard()],
+      page: () =>
+          const AccountApprovalGate(child: HomeShellView(initialIndex: 1)),
       binding: CustomersBinding(),
     ),
     GetPage(
       name: AppRoutes.customerDetail,
-      middlewares: [WebSessionGuard()],
-      page: () => const CustomerDetailView(),
+      middlewares: [SessionGuard()],
+      page: () => const AccountApprovalGate(child: CustomerDetailView()),
     ),
     GetPage(
       name: AppRoutes.customerCreate,
       opaque: false,
       transition: Transition.fadeIn,
-      middlewares: [WebSessionGuard()],
-      page: () => const CustomerFormView(),
+      middlewares: [SessionGuard()],
+      page: () => const AccountApprovalGate(child: CustomerFormView()),
     ),
 
     GetPage(
       name: AppRoutes.customerStatement,
-      middlewares: [WebSessionGuard()],
-      page: () => const CustomerStatementView(),
+      middlewares: [SessionGuard()],
+      page: () => const AccountApprovalGate(child: CustomerStatementView()),
     ),
 
     // ── Invoices ────────────────────────────────────────────────────────────
     GetPage(
       name: AppRoutes.invoices,
-      middlewares: [WebSessionGuard()],
-      page: () => const HomeShellView(initialIndex: 2),
+      middlewares: [SessionGuard()],
+      page: () =>
+          const AccountApprovalGate(child: HomeShellView(initialIndex: 2)),
       binding: InvoicesBinding(),
     ),
     GetPage(
       name: AppRoutes.invoiceCreate,
-      middlewares: [WebSessionGuard()],
+      middlewares: [SessionGuard()],
       opaque: false,
       transition: Transition.fadeIn,
-      page: () => const InvoiceFormView(),
+      page: () => const AccountApprovalGate(child: InvoiceFormView()),
       binding: InvoicesBinding(),
     ),
     GetPage(
       name: AppRoutes.invoiceDetail,
-      middlewares: [WebSessionGuard()],
-      page: () => const InvoiceDetailView(),
+      middlewares: [SessionGuard()],
+      page: () => const AccountApprovalGate(child: InvoiceDetailView()),
       binding: InvoicesBinding(),
     ),
 
@@ -117,28 +122,29 @@ class AppPages {
     // ── Payments ────────────────────────────────────────────────────────────
     GetPage(
       name: AppRoutes.payments,
-      middlewares: [WebSessionGuard()],
-      page: () => const AllPaymentsView(),
+      middlewares: [SessionGuard()],
+      page: () => const AccountApprovalGate(child: AllPaymentsView()),
       binding: PaymentsBinding(),
     ),
     GetPage(
       name: AppRoutes.paymentCreate,
-      middlewares: [WebSessionGuard()],
+      middlewares: [SessionGuard()],
       opaque: false,
       transition: Transition.fadeIn,
-      page: () => const AddPaymentView(),
+      page: () => const AccountApprovalGate(child: AddPaymentView()),
       binding: PaymentsBinding(),
     ),
   ];
 }
 
-class WebSessionGuard extends GetMiddleware {
+class SessionGuard extends GetMiddleware {
   @override
   RouteSettings? redirect(String? route) {
     if (!AppRuntime.demo &&
-        kIsWeb &&
         (!Get.isRegistered<SupabaseService>() ||
-            SupabaseService.to.client?.auth.currentSession == null)) {
+            SupabaseService.to.client?.auth.currentSession == null ||
+            !Get.isRegistered<AuthService>() ||
+            !AuthService.to.isAuthenticated)) {
       return const RouteSettings(name: AppRoutes.login);
     }
     return null;

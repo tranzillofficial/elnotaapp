@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../../../core/services/account_access_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/sync/services/sync_service.dart';
@@ -47,18 +47,8 @@ class AuthService extends GetxService {
       );
       return;
     }
-    if (kIsWeb) {
-      currentSession.value = null;
-      return;
-    }
-    // Default local workspace for offline-first accounting
-    currentSession.value = const UserSession(
-      userId: 'local_user',
-      email: 'merchant@elnota.local',
-      workspaceId: 'default',
-      workspaceName: 'النوتة - محلي',
-      role: 'owner',
-    );
+    // No anonymous/local owner is created. Offline access requires a prior login.
+    currentSession.value = null;
   }
 
   Future<void> acceptServerSession() async {
@@ -75,6 +65,21 @@ class AuthService extends GetxService {
       Get.put<SyncService>(SyncService(), permanent: true);
     }
     _restoreLocalSession();
+    if (Get.isRegistered<AccountAccessService>()) {
+      AccountAccessService.to.resetForAccount(user.id);
+    }
+    // Idempotent registration does not activate the account or touch its ledger.
+    try {
+      await SupabaseService.to.client!.rpc(
+        'elnota_register',
+        params: {'business': currentSession.value?.workspaceName ?? 'النوتة'},
+      );
+    } catch (_) {
+      // Entitlement remains denied if registration could not be verified.
+    }
+    if (Get.isRegistered<AccountAccessService>()) {
+      await AccountAccessService.to.refreshAccess();
+    }
   }
 
   Future<bool> signIn({required String email, required String password}) async {
@@ -85,7 +90,7 @@ class AuthService extends GetxService {
       final supa = SupabaseService.to;
       if (supa.isInitialized && supa.client != null) {
         final res = await supa.client!.auth.signInWithPassword(
-          email: email,
+          email: email.trim().toLowerCase(),
           password: password,
         );
         final user = res.user;
@@ -94,7 +99,8 @@ class AuthService extends GetxService {
           return true;
         }
       }
-      lastError.value = 'خدمة تسجيل الدخول غير مُعدّة على هذه النسخة';
+      lastError.value =
+          'تعذر تهيئة خدمة الحساب. تأكد من اتصال الإنترنت واستعمال آخر إصدار.';
       return false;
     } on AuthException catch (e) {
       lastError.value = e.code == 'invalid_credentials'
@@ -118,24 +124,40 @@ class AuthService extends GetxService {
     required String storeName,
   }) async {
     if (AppRuntime.demo) return false;
+    lastError.value = null;
     isLoading.value = true;
     try {
       final supa = SupabaseService.to;
       if (supa.isInitialized && supa.client != null) {
         final res = await supa.client!.auth.signUp(
-          email: email,
+          email: email.trim().toLowerCase(),
           password: password,
           data: {'workspace_name': storeName},
         );
         final user = res.user;
         if (user != null) {
-          if (res.session == null) return false;
+          if (res.session == null) {
+            lastError.value =
+                'تم إنشاء الحساب. أكّد بريدك الإلكتروني ثم سجّل الدخول لإرسال طلب التفعيل.';
+            return false;
+          }
           await acceptServerSession();
           return true;
         }
       }
+      lastError.value =
+          'تعذر تهيئة خدمة الحساب. تأكد من اتصال الإنترنت واستعمال آخر إصدار.';
+      return false;
+    } on AuthException catch (e) {
+      lastError.value = e.code == 'user_already_exists'
+          ? 'هذا البريد مسجل بالفعل. استخدم تسجيل الدخول.'
+          : e.code == 'over_email_send_rate_limit'
+          ? 'تم إرسال طلبات كثيرة. انتظر قليلًا قبل المحاولة.'
+          : 'تعذر إنشاء الحساب. راجع البريد وكلمة المرور واتصال الإنترنت.';
       return false;
     } catch (_) {
+      lastError.value =
+          'تعذر الاتصال بخدمة الحساب. تحقق من الإنترنت وحاول مرة أخرى';
       return false;
     } finally {
       isLoading.value = false;
@@ -144,11 +166,12 @@ class AuthService extends GetxService {
 
   Future<void> signOut() async {
     if (AppRuntime.demo) return;
+    lastError.value = null;
     isLoading.value = true;
     try {
       final supa = SupabaseService.to;
       if (supa.isInitialized && supa.client != null) {
-        await supa.client!.auth.signOut();
+        await supa.client!.auth.signOut(scope: SignOutScope.local);
       }
       await supa.clearSecureSession();
       if (Get.isRegistered<DatabaseService>()) {
@@ -158,7 +181,11 @@ class AuthService extends GetxService {
         await DatabaseService.to.switchAccount(null);
         Get.put<SyncService>(SyncService(), permanent: true);
       }
-      _restoreLocalSession();
+      currentSession.value = null;
+      if (Get.isRegistered<AccountAccessService>()) {
+        AccountAccessService.to.resetForAccount(null);
+        await AccountAccessService.to.refreshAccess();
+      }
     } finally {
       isLoading.value = false;
     }

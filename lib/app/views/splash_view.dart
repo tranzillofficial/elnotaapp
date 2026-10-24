@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import '../../core/services/supabase_service.dart';
 import '../../features/auth/services/device_login_service.dart';
 import 'package:flutter/material.dart';
@@ -49,9 +48,7 @@ class _SplashViewState extends State<SplashView>
             Get.isRegistered<SupabaseService>() &&
             SupabaseService.to.client?.auth.currentSession != null;
         Get.offAllNamed(
-          kIsWeb && !loggedIn && !AppRuntime.demo
-              ? AppRoutes.login
-              : AppRoutes.home,
+          !loggedIn && !AppRuntime.demo ? AppRoutes.login : AppRoutes.home,
         );
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => DeviceLinkBridge.initialize(),

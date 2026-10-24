@@ -44,16 +44,16 @@ class AuthController extends GetxController {
 
     if (success) {
       Get.offAllNamed(AppRoutes.home);
+    } else if (isSignUp.value &&
+        (auth.lastError.value?.startsWith('تم إنشاء الحساب') ?? false)) {
+      showSuccessSnack(auth.lastError.value!);
+      isSignUp.value = false;
     } else {
       showErrorSnack(
         auth.lastError.value ??
             'تعذر إكمال الطلب. تحقق من البيانات وتأكيد البريد',
       );
     }
-  }
-
-  void continueOffline() {
-    Get.offAllNamed(AppRoutes.home);
   }
 
   @override

@@ -342,7 +342,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                   ? 'سحابة شهرية'
                                   : 'سحابة سنوية',
                             ),
-                            Text(designMoney((r['amount'] as int) * 100)),
+                            Text(
+                              r['amount'] == null
+                                  ? 'راجع مرجع الدفع'
+                                  : designMoney(
+                                      (r['amount'] as num).toInt() * 100,
+                                    ),
+                            ),
                             Text('${r['phone']}'),
                             Text('${r['reference']}'),
                             Wrap(

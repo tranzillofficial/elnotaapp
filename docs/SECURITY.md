@@ -40,3 +40,11 @@ Protect tenant financial data against cross-account leakage, stolen devices, com
 - [ ] Payment activation verifies trusted webhook/source and is replay safe.
 - [ ] Sensitive logs redact PII, financial details and auth tokens.
 - [ ] User data export/deletion and backup restoration tested.
+
+
+## Account activation gate (24 October 2026)
+All native and Web accounting routes now require a persisted authenticated Supabase session plus approved `elnota_accounts` entitlement. No anonymous local owner or continue-offline login action is created. Signed-in pending users submit a `basic` activation request; only the existing admin-only `elnota_review` RPC approves it after the administrator verifies payment. Signup and `elnota_register` do not activate users.
+
+Offline use follows a previous authenticated login and a server-verified active entitlement cached in FlutterSecureStorage, scoped to that user. The former editable GetStorage entitlement is not imported as trusted approval. Online suspension/deletion denies access; cloud expiry does not revoke a paid basic local licence. Offline revocation can only be learned on reconnection. Account DBs remain separate, and old local files are retained without migration/deletion. Public backend configuration is bundled consistently; it contains no service-role secret.
+
+Production scope: local accounting/auth/activation fixes. Cloud ledger sync and v2 cloud backup remain disabled. An isolated free Supabase project could not be provisioned because the account already has two active free projects. The user chose to continue account/local fixes; this is not approval to launch untested cloud synchronization or touch legacy client data.

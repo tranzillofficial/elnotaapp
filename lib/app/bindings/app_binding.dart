@@ -1,3 +1,4 @@
+import '../../core/utils/backend_config.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import '../../core/database/app_database.dart';
@@ -56,8 +57,8 @@ Future<void> initServices() async {
   final supabase = Get.put<SupabaseService>(SupabaseService(), permanent: true);
   if (!AppRuntime.demo) {
     await supabase.init(
-      url: const String.fromEnvironment('SUPABASE_URL'),
-      anonKey: const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY'),
+      url: BackendConfig.url,
+      anonKey: BackendConfig.publishableKey,
     );
   }
   final userId = supabase.client?.auth.currentUser?.id;

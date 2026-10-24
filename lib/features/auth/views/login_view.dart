@@ -1,6 +1,6 @@
+import 'package:package_info_plus/package_info_plus.dart';
 import 'device_login_view.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../../core/utils/app_constants.dart';
 import '../controllers/auth_controller.dart';
@@ -135,9 +135,7 @@ class LoginView extends GetView<AuthController> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
-                              controller.isSignUp.value
-                                  ? 'إنشاء حساب والبدء'
-                                  : 'دخول',
+                              controller.isSignUp.value ? 'إنشاء حساب' : 'دخول',
                             ),
                     ),
                   ),
@@ -161,15 +159,26 @@ class LoginView extends GetView<AuthController> {
                     label: const Text('دخول سريع برمز QR'),
                   ),
                   const SizedBox(height: 16),
-                  // Continue Offline
-                  if (!kIsWeb)
-                    OutlinedButton.icon(
-                      onPressed: controller.continueOffline,
-                      icon: const Icon(Icons.offline_bolt_outlined),
-                      label: const Text('المتابعة دون اتصال (محليًا)'),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'يتطلب الاستخدام حسابًا وموافقة الإدارة بعد تأكيد الدفع. بعد التفعيل يمكنك العمل محليًا دون إنترنت.',
+                      textAlign: TextAlign.center,
                     ),
-                  const SizedBox(height: 24),
-
+                  ),
+                  FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        snapshot.hasData
+                            ? 'ElNota ${snapshot.data!.version} (${snapshot.data!.buildNumber})'
+                            : 'ElNota ${AppConstants.appVersion}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                  ),
                   // Privacy / Note
                   Container(
                     padding: const EdgeInsets.all(12),
