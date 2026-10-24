@@ -176,12 +176,12 @@ class DesignPanel extends StatelessWidget {
               builder: (context, box) {
                 final heading = Text(
                   title!,
-                  style: const TextStyle(
-                    fontSize: 19,
+                  style: TextStyle(
+                    fontSize: MediaQuery.sizeOf(context).width < 600 ? 16 : 19,
                     fontWeight: FontWeight.w700,
                   ),
                 );
-                if (box.maxWidth < 520) {
+                if (box.maxWidth < 260) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -205,7 +205,7 @@ class DesignPanel extends StatelessWidget {
               },
             ),
           ),
-        child,
+        Material(color: Colors.transparent, child: child),
       ],
     ),
   );
@@ -229,13 +229,19 @@ class DesignHeader extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontSize: MediaQuery.sizeOf(context).width < 600 ? 23 : 30,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 5),
             Text(
               subtitle!,
-              style: const TextStyle(color: designMuted, fontSize: 17),
+              style: TextStyle(
+                color: designMuted,
+                fontSize: MediaQuery.sizeOf(context).width < 600 ? 12 : 17,
+              ),
             ),
           ],
         ],
@@ -279,8 +285,14 @@ class DesignAction extends StatelessWidget {
       children: [Icon(icon, size: 22), const SizedBox(width: 10), Text(label)],
     );
     return primary
-        ? FilledButton(onPressed: onPressed, child: child)
-        : OutlinedButton(onPressed: onPressed, child: child);
+        ? FilledButton(
+            onPressed: onPressed,
+            child: FittedBox(fit: BoxFit.scaleDown, child: child),
+          )
+        : OutlinedButton(
+            onPressed: onPressed,
+            child: FittedBox(fit: BoxFit.scaleDown, child: child),
+          );
   }
 }
 
@@ -290,7 +302,10 @@ class DesignStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
-      final count = box.maxWidth >= 1100
+      final count =
+          MediaQuery.sizeOf(context).width < 600 && box.maxWidth >= 280
+          ? (children.length == 3 ? 3 : 2)
+          : box.maxWidth >= 1100
           ? children.length
           : box.maxWidth >= 650
           ? 3
@@ -330,9 +345,10 @@ class DesignStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = color ?? designGreen;
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
-      constraints: const BoxConstraints(minHeight: 130),
-      padding: const EdgeInsets.all(20),
+      constraints: BoxConstraints(minHeight: mobile ? 85 : 130),
+      padding: EdgeInsets.all(mobile ? 10 : 20),
       decoration: BoxDecoration(
         color: highlight
             ? tone.withValues(alpha: .045)
@@ -352,7 +368,10 @@ class DesignStat extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(color: designMuted, fontSize: 16),
+                  style: TextStyle(
+                    color: designMuted,
+                    fontSize: mobile ? 11 : 16,
+                  ),
                 ),
               ),
               Container(
@@ -361,7 +380,7 @@ class DesignStat extends StatelessWidget {
                   color: tone.withValues(alpha: .07),
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: Icon(icon, color: tone, size: 25),
+                child: Icon(icon, color: tone, size: mobile ? 18 : 25),
               ),
             ],
           ),
@@ -372,7 +391,7 @@ class DesignStat extends StatelessWidget {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 26,
+                fontSize: mobile ? 21 : 26,
                 fontWeight: FontWeight.w800,
                 color: highlight ? tone : null,
               ),
@@ -413,34 +432,82 @@ class DesignTable extends StatelessWidget {
   final double rowHeight;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) => SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: box.maxWidth < minWidth ? minWidth : box.maxWidth,
-        ),
-        child: DataTable(
-          headingRowHeight: 47,
-          dataRowMinHeight: rowHeight,
-          dataRowMaxHeight: rowHeight,
-          horizontalMargin: 20,
-          columnSpacing: 20,
-          dividerThickness: .6,
-          headingRowColor: WidgetStatePropertyAll(
-            Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest.withValues(alpha: .45),
+    builder: (context, box) => MediaQuery.sizeOf(context).width < 600
+        ? Column(
+            children: [
+              for (final row in rows)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: designBorder)),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < row.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (i < headers.length && headers[i].isNotEmpty)
+                                SizedBox(
+                                  width: 85,
+                                  child: Text(
+                                    headers[i],
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: designMuted,
+                                    ),
+                                  ),
+                                ),
+                              Expanded(
+                                child: DefaultTextStyle.merge(
+                                  style: const TextStyle(fontSize: 12),
+                                  child: row[i],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          )
+        : SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: box.maxWidth < minWidth ? minWidth : box.maxWidth,
+              ),
+              child: DataTable(
+                headingRowHeight: 47,
+                dataRowMinHeight: rowHeight,
+                dataRowMaxHeight: rowHeight,
+                horizontalMargin: 20,
+                columnSpacing: 20,
+                dividerThickness: .6,
+                headingRowColor: WidgetStatePropertyAll(
+                  Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: .45),
+                ),
+                headingTextStyle: const TextStyle(
+                  color: designMuted,
+                  fontSize: 14,
+                ),
+                columns: headers
+                    .map((h) => DataColumn(label: Text(h)))
+                    .toList(),
+                rows: rows
+                    .map(
+                      (row) =>
+                          DataRow(cells: row.map((w) => DataCell(w)).toList()),
+                    )
+                    .toList(),
+              ),
+            ),
           ),
-          headingTextStyle: const TextStyle(color: designMuted, fontSize: 14),
-          columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
-          rows: rows
-              .map(
-                (row) => DataRow(cells: row.map((w) => DataCell(w)).toList()),
-              )
-              .toList(),
-        ),
-      ),
-    ),
   );
 }
 

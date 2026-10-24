@@ -1,3 +1,5 @@
+import 'package:elnota/app/views/mobile_more_view.dart';
+import 'package:elnota/features/invoices/controllers/invoice_form_controller.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:get_storage/get_storage.dart';
@@ -158,9 +160,10 @@ void main() {
   tearDown(() {
     Get.reset();
   });
-  for (final width in [390.0, 1586.0]) {
+  for (final width in [320.0, 390.0, 1586.0]) {
     for (final screen in [
       'dashboard',
+      'more',
       'customers',
       'detail',
       'invoices',
@@ -180,7 +183,9 @@ void main() {
             theme: AppTheme.light,
             home: Directionality(
               textDirection: TextDirection.rtl,
-              child: screen == 'dashboard'
+              child: screen == 'more'
+                  ? MobileMoreView(onSelect: (_) {})
+                  : screen == 'dashboard'
                   ? const HomeOverviewView()
                   : screen == 'invoices'
                   ? const AllInvoicesView()
@@ -222,6 +227,22 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('سارة علي'), findsOneWidget);
           expect(find.text('محمد فؤاد'), findsNothing);
+        }
+        if (screen == 'invoice-form' && width < 600) {
+          await tester.tap(find.text('إضافة صنف'));
+          await tester.pumpAndSettle();
+          final form = Get.find<InvoiceFormController>();
+          expect(form.items, hasLength(1));
+          await tester.tap(find.byTooltip('زيادة الكمية'));
+          await tester.pumpAndSettle();
+          expect(form.items.single.quantity, 2);
+          await tester.tap(find.byTooltip('حذف البند'));
+          await tester.pumpAndSettle();
+          expect(form.items, isEmpty);
+          await tester.tap(find.text('مبلغ فقط'));
+          await tester.pumpAndSettle();
+          expect(find.text('قيمة الفاتورة'), findsOneWidget);
+          expect(tester.takeException(), isNull);
         }
         if (screen == 'detail') {
           expect(find.text('تسجيل دفعة'), findsOneWidget);

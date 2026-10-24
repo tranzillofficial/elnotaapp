@@ -1,3 +1,5 @@
+import 'mobile_more_view.dart';
+import '../../core/widgets/mobile_design.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/database/app_database.dart';
@@ -11,59 +13,6 @@ import '../../features/settings/views/settings_view.dart';
 import 'home_overview_view.dart';
 import '../../features/products/views/products_view.dart';
 import '../../core/widgets/design_widgets.dart';
-
-/// Navigation destination data model.
-class _NavDestination {
-  const _NavDestination({
-    required this.label,
-    required this.icon,
-    required this.selectedIcon,
-    required this.route,
-  });
-  final String label;
-  final IconData icon;
-  final IconData selectedIcon;
-  final String route;
-}
-
-const _destinations = [
-  _NavDestination(
-    label: 'nav_home',
-    icon: Icons.home_outlined,
-    selectedIcon: Icons.home_rounded,
-    route: AppRoutes.home,
-  ),
-  _NavDestination(
-    label: 'nav_customers',
-    icon: Icons.people_outline_rounded,
-    selectedIcon: Icons.people_rounded,
-    route: AppRoutes.customers,
-  ),
-  _NavDestination(
-    label: 'nav_invoices',
-    icon: Icons.receipt_outlined,
-    selectedIcon: Icons.receipt_rounded,
-    route: AppRoutes.invoices,
-  ),
-  _NavDestination(
-    label: 'nav_payments',
-    icon: Icons.payments_outlined,
-    selectedIcon: Icons.payments_rounded,
-    route: AppRoutes.payments,
-  ),
-  _NavDestination(
-    label: 'nav_settings',
-    icon: Icons.settings_outlined,
-    selectedIcon: Icons.settings_rounded,
-    route: AppRoutes.settings,
-  ),
-  _NavDestination(
-    label: 'المنتجات',
-    icon: Icons.inventory_2_outlined,
-    selectedIcon: Icons.inventory_2,
-    route: AppRoutes.products,
-  ),
-];
 
 /// Adaptive shell that hosts primary navigation:
 /// - Mobile   → BottomNavigationBar with Badges
@@ -100,6 +49,8 @@ class _HomeShellViewState extends State<HomeShellView> {
         return const SettingsView();
       case 5:
         return const ProductsView();
+      case 6:
+        return MobileMoreView(onSelect: _onDestinationSelected);
       default:
         return const HomeOverviewView();
     }
@@ -141,36 +92,6 @@ class _HomeShellViewState extends State<HomeShellView> {
   }
 }
 
-// ─── Helper for Badged Navigation Icons ────────────────────────────────────────
-
-Widget _buildNavBadge({
-  required _NavDestination destination,
-  required WorkspaceStats? stats,
-  required bool isSelected,
-}) {
-  final icon = Icon(isSelected ? destination.selectedIcon : destination.icon);
-  if (stats == null) return icon;
-
-  int count = 0;
-  if (destination.route == AppRoutes.customers) {
-    count = stats.customersCount;
-  } else if (destination.route == AppRoutes.invoices) {
-    count = stats.invoicesCount;
-  } else if (destination.route == AppRoutes.payments) {
-    count = stats.paymentsCount;
-  }
-
-  if (count <= 0) return icon;
-
-  return Badge(
-    label: Text(
-      '$count',
-      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-    ),
-    child: icon,
-  );
-}
-
 // ─── Mobile shell ────────────────────────────────────────────────────────────
 
 class _MobileShell extends StatelessWidget {
@@ -189,33 +110,112 @@ class _MobileShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: body,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: const [0, 1, 2, 3, 5, 4].indexOf(selectedIndex),
-        onDestinationSelected: (i) =>
-            onDestinationSelected(const [0, 1, 2, 3, 5, 4][i]),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [0, 1, 2, 3, 5, 4]
-            .map((i) => _destinations[i])
-            .map(
-              (d) => NavigationDestination(
-                icon: _buildNavBadge(
-                  destination: d,
-                  stats: stats,
-                  isSelected: false,
-                ),
-                selectedIcon: _buildNavBadge(
-                  destination: d,
-                  stats: stats,
-                  isSelected: true,
-                ),
-                label: d.label.tr,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const MobileBrandHeader(),
+            Expanded(child: body),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: designBorder)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              _nav(
+                'فواتيري',
+                Icons.description_outlined,
+                selectedIndex == 2,
+                () => onDestinationSelected(2),
               ),
-            )
-            .toList(),
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: 'إضافة فاتورة',
+                  child: InkWell(
+                    onTap: () => Get.toNamed(AppRoutes.invoiceCreate),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: designGreen,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'إضافة فاتورة',
+                          style: TextStyle(color: designGreen, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              _nav(
+                'المزيد',
+                Icons.grid_view_rounded,
+                selectedIndex == 6,
+                () => onDestinationSelected(6),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+
+  Widget _nav(String label, IconData icon, bool selected, VoidCallback tap) =>
+      Expanded(
+        child: InkWell(
+          onTap: tap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 52,
+                  height: 35,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? const Color(0xFFE4F6EE)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 25,
+                    color: selected ? designGreen : designMuted,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? designGreen : designMuted,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 // ─── Tablet / Desktop rail shell ─────────────────────────────────────────────

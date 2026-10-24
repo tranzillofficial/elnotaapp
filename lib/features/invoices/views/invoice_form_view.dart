@@ -82,34 +82,62 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
       return AccountingFormFrame(
         title: 'فاتورة جديدة',
         busy: ctrl.isSaving.value,
-        footer: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            FilledButton(
-              onPressed: ctrl.isSaving.value ? null : () => _save(false),
-              child: Text(ctrl.isSaving.value ? 'جارٍ الحفظ…' : 'حفظ الفاتورة'),
-            ),
-            OutlinedButton(
-              onPressed: ctrl.isSaving.value ? null : () => _save(true),
-              child: const Text('حفظ وطباعة'),
-            ),
-            OutlinedButton(
-              onPressed: ctrl.isSaving.value ? null : () => Get.back(),
-              child: const Text('إلغاء'),
-            ),
-          ],
-        ),
+        footer: MediaQuery.sizeOf(context).width < 600
+            ? Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: ctrl.isSaving.value
+                          ? null
+                          : () => _save(false),
+                      icon: const Icon(Icons.save_outlined, size: 18),
+                      label: Text(
+                        ctrl.isSaving.value ? 'جارٍ الحفظ…' : 'حفظ الفاتورة',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: ctrl.isSaving.value ? null : () => _save(true),
+                      icon: const Icon(Icons.print_outlined, size: 18),
+                      label: const Text('حفظ وطباعة'),
+                    ),
+                  ),
+                ],
+              )
+            : Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton(
+                    onPressed: ctrl.isSaving.value ? null : () => _save(false),
+                    child: Text(
+                      ctrl.isSaving.value ? 'جارٍ الحفظ…' : 'حفظ الفاتورة',
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: ctrl.isSaving.value ? null : () => _save(true),
+                    child: const Text('حفظ وطباعة'),
+                  ),
+                  OutlinedButton(
+                    onPressed: ctrl.isSaving.value ? null : () => Get.back(),
+                    child: const Text('إلغاء'),
+                  ),
+                ],
+              ),
         child: IgnorePointer(
           ignoring: ctrl.isSaving.value,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               FormColumns(
+                mobileColumns: true,
                 children: [
                   LabeledField(
                     'العميل',
                     child: CustomerSearchField(
+                      showLabel: false,
                       value: customerId,
                       customers: data.customers
                           .map(
@@ -134,56 +162,118 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                         if (date != null) ctrl.invoiceDate.value = date;
                       },
                       icon: const Icon(Icons.calendar_month_outlined),
-                      label: Text(designDate(ctrl.invoiceDate.value)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      iconAlignment: IconAlignment.end,
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          designDate(ctrl.invoiceDate.value),
+                          maxLines: 1,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 18),
               const Divider(),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                alignment: WrapAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'بنود الفاتورة',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(
-                        value: false,
-                        icon: Icon(Icons.list_alt_outlined, size: 18),
-                        label: Text('بنود الفاتورة'),
-                      ),
-                      ButtonSegment(
-                        value: true,
-                        icon: Icon(Icons.edit_outlined, size: 18),
-                        label: Text('مبلغ يدوي'),
-                      ),
-                    ],
-                    selected: {ctrl.isManualAmount.value},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (selection) =>
-                        ctrl.isManualAmount.value = selection.first,
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      ctrl.isManualAmount.value = false;
-                      ctrl.addItem(
-                        LineItemDraft(
-                          description: '',
-                          quantity: 1,
-                          unitPriceMinor: 0,
+              if (MediaQuery.sizeOf(context).width < 600) ...[
+                SegmentedButton<bool>(
+                  expandedInsets: EdgeInsets.zero,
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.inventory_2_outlined, size: 18),
+                      label: Text('أصناف'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.description_outlined, size: 18),
+                      label: Text('مبلغ فقط'),
+                    ),
+                  ],
+                  selected: {ctrl.isManualAmount.value},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (v) =>
+                      ctrl.isManualAmount.value = v.first,
+                ),
+                if (!ctrl.isManualAmount.value)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 14, bottom: 4),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'بنود الفاتورة',
+                            style: TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('إضافة بند'),
+                        OutlinedButton.icon(
+                          onPressed: () => ctrl.addItem(
+                            LineItemDraft(
+                              description: '',
+                              quantity: 1,
+                              unitPriceMinor: 0,
+                            ),
+                          ),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('إضافة صنف'),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+              ] else
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'بنود الفاتورة',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(
+                          value: false,
+                          icon: Icon(Icons.list_alt_outlined, size: 18),
+                          label: Text('بنود الفاتورة'),
+                        ),
+                        ButtonSegment(
+                          value: true,
+                          icon: Icon(Icons.edit_outlined, size: 18),
+                          label: Text('مبلغ فقط'),
+                        ),
+                      ],
+                      selected: {ctrl.isManualAmount.value},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (selection) =>
+                          ctrl.isManualAmount.value = selection.first,
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        ctrl.isManualAmount.value = false;
+                        ctrl.addItem(
+                          LineItemDraft(
+                            description: '',
+                            quantity: 1,
+                            unitPriceMinor: 0,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('إضافة بند'),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 8),
               if (ctrl.isManualAmount.value)
                 LabeledField(
@@ -223,6 +313,7 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                 ),
               const SizedBox(height: 10),
               FormColumns(
+                mobileColumns: true,
                 children: [
                   LabeledField(
                     'خصم (اختياري)',
@@ -246,6 +337,7 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
               ),
               const SizedBox(height: 10),
               SegmentedButton<String>(
+                expandedInsets: EdgeInsets.zero,
                 segments: const [
                   ButtonSegment(value: 'cash', label: Text('نقدي')),
                   ButtonSegment(value: 'credit', label: Text('آجل')),
@@ -258,6 +350,7 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
               if (ctrl.method.value != 'cash') ...[
                 const SizedBox(height: 16),
                 FormColumns(
+                  mobileColumns: true,
                   children: [
                     LabeledField(
                       'الدفعة المقدمة',
@@ -303,6 +396,7 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                 if (installment) ...[
                   const SizedBox(height: 10),
                   FormColumns(
+                    mobileColumns: true,
                     children: [
                       _Total('المتبقي للتقسيط', ctrl.principal),
                       _Total(
@@ -448,46 +542,232 @@ class _LineEditorState extends State<_LineEditor> {
       unitPriceMinor: MoneyUtils.parseToMinor(price.text) ?? 0,
     ),
   );
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: FormColumns(
+  void adjustQuantity(int delta) {
+    final next = (int.tryParse(qty.text) ?? 1) + delta;
+    if (next < 1) return;
+    setState(() => qty.text = '$next');
+    changed('');
+  }
+
+  Widget mobileEditor(BuildContext context) => Container(
+    margin: const EdgeInsets.symmetric(vertical: 5),
+    padding: const EdgeInsets.fromLTRB(10, 5, 10, 10),
+    decoration: BoxDecoration(
+      border: Border.all(color: designBorder),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(
       children: [
         TextField(
           controller: desc,
           onChanged: changed,
-          decoration: const InputDecoration(labelText: 'الصنف / الوصف'),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          decoration: const InputDecoration(
+            hintText: 'اسم الصنف / الوصف',
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(vertical: 8),
+          ),
         ),
+        const Divider(height: 12),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: TextField(
-                controller: qty,
-                onChanged: changed,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'الكمية'),
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'الكمية',
+                    style: TextStyle(color: designMuted, fontSize: 11),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: 38,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: designBorder),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 26,
+                          child: IconButton(
+                            tooltip: 'زيادة الكمية',
+                            onPressed: () => adjustQuantity(1),
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.add, size: 17),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: qty,
+                            onChanged: changed,
+                            textAlign: TextAlign.center,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: const TextStyle(fontSize: 14),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 26,
+                          child: IconButton(
+                            tooltip: 'تقليل الكمية',
+                            onPressed: (int.tryParse(qty.text) ?? 1) > 1
+                                ? () => adjustQuantity(-1)
+                                : null,
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.remove, size: 17),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
-              flex: 2,
-              child: TextField(
-                controller: price,
-                onChanged: changed,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(labelText: 'سعر الوحدة'),
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'سعر الوحدة',
+                    style: TextStyle(color: designMuted, fontSize: 11),
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 38,
+                    child: TextField(
+                      controller: price,
+                      onChanged: changed,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 9,
+                        ),
+                        suffixText: 'ج.م',
+                        suffixStyle: TextStyle(fontSize: 9),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            IconButton(
-              onPressed: widget.onDelete,
-              icon: const Icon(Icons.delete_outline),
+            const SizedBox(width: 6),
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'الإجمالي',
+                    style: TextStyle(color: designMuted, fontSize: 11),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: designGreen.withValues(alpha: .07),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        designMoney(widget.item.lineTotal),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 29,
+              child: IconButton(
+                tooltip: 'حذف البند',
+                onPressed: widget.onDelete,
+                padding: EdgeInsets.zero,
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                  size: 22,
+                ),
+              ),
             ),
           ],
         ),
       ],
     ),
   );
+  @override
+  Widget build(BuildContext context) => MediaQuery.sizeOf(context).width < 600
+      ? mobileEditor(context)
+      : Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: FormColumns(
+            mobileColumns: true,
+            children: [
+              TextField(
+                controller: desc,
+                onChanged: changed,
+                decoration: const InputDecoration(labelText: 'الصنف / الوصف'),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: qty,
+                      onChanged: changed,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'الكمية'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: price,
+                      onChanged: changed,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'سعر الوحدة',
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: widget.onDelete,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
 }

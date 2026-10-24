@@ -1,3 +1,5 @@
+import '../../../core/widgets/mobile_design.dart';
+import '../models/invoice_terms.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/design_widgets.dart';
@@ -69,6 +71,9 @@ class _AllInvoicesViewState extends State<AllInvoicesView> {
                   )
                   .toList()
                 ..sort((a, b) => a.date.compareTo(b.date));
+          if (MediaQuery.sizeOf(context).width < 600) {
+            return _mobile(data, filtered, schedule, overdue, months);
+          }
           return ListView(
             padding: EdgeInsets.all(
               MediaQuery.sizeOf(context).width < 600 ? 16 : 32,
@@ -430,6 +435,381 @@ class _AllInvoicesViewState extends State<AllInvoicesView> {
       ),
     ),
   );
+  Widget _mobile(
+    AccountData data,
+    List<InvoiceModel> filtered,
+    List<ScheduledDue> schedule,
+    List<ScheduledDue> overdue,
+    List<String> months,
+  ) {
+    final rows = filtered.take((page + 1) * 6).toList();
+    final dues = schedule.take((page + 1) * 6).toList();
+    final names = {for (final c in data.customers) c.id: c.name};
+    final terms = {for (final t in data.terms) t.invoiceId: t};
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'الفواتير',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+              ),
+            ),
+            IconButton(
+              tooltip: 'تصدير الفواتير',
+              onPressed: () => ExcelExportService.exportAndShareWorkbook(
+                customers: data.customers,
+                invoices: filtered,
+              ),
+              icon: const Icon(Icons.ios_share_outlined, color: designMuted),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            for (var i = 0; i < 2; i++)
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() {
+                    tab = i;
+                    page = 0;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: tab == i ? designGreen : designBorder,
+                          width: tab == i ? 3 : 1,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      i == 0 ? 'الفواتير' : 'جدول الأقساط (${overdue.length})',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: tab == i ? designGreen : designMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        MobileStatRow(
+          children: [
+            MobileStat(
+              'عدد الفواتير',
+              '${data.invoices.length}',
+              Icons.description_outlined,
+              color: Colors.blue,
+            ),
+            MobileStat(
+              'قيمة الفواتير',
+              designMoney(
+                data.invoices
+                    .where((i) => i.isPosted)
+                    .fold<int>(0, (sum, i) => sum + i.netMinor),
+              ),
+              Icons.payments_outlined,
+            ),
+            MobileStat(
+              'متأخرات الأقساط',
+              designMoney(
+                overdue.fold<int>(0, (sum, d) => sum + d.remainingMinor),
+              ),
+              Icons.alarm_outlined,
+              color: Colors.red,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          onChanged: (v) => setState(() {
+            query = v;
+            page = 0;
+          }),
+          decoration: const InputDecoration(
+            hintText: 'ابحث برقم الفاتورة أو العميل',
+            prefixIcon: Icon(Icons.search),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (tab == 0)
+          MobileFilters<String>(
+            values: const [
+              ('all', 'الكل'),
+              ('cash', 'نقدي'),
+              ('credit', 'آجل'),
+              ('installments', 'أقساط'),
+            ],
+            selected: method,
+            onChanged: (v) => setState(() {
+              method = v;
+              page = 0;
+            }),
+            trailing: IconButton(
+              tooltip: 'اختيار الشهر',
+              onPressed: () => _chooseMonth(months),
+              icon: const Icon(
+                Icons.calendar_month_outlined,
+                color: designMuted,
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  month == 'all' ? 'كل الشهور' : month,
+                  style: const TextStyle(color: designMuted, fontSize: 13),
+                ),
+              ),
+              if (tab == 0)
+                PopupMenuButton<String>(
+                  tooltip: 'حالة الفاتورة',
+                  icon: const Icon(Icons.tune, size: 20, color: designMuted),
+                  onSelected: (v) => setState(() {
+                    status = v;
+                    page = 0;
+                  }),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'all', child: Text('كل الحالات')),
+                    PopupMenuItem(value: 'posted', child: Text('مرحّلة')),
+                    PopupMenuItem(value: 'draft', child: Text('مسودة')),
+                    PopupMenuItem(value: 'voided', child: Text('ملغاة')),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        if (tab == 0)
+          for (final i in rows)
+            Builder(
+              builder: (context) {
+                final t = terms[i.id];
+                final m = t?.method ?? 'credit';
+                return MobileRecordCard(
+                  onTap: () => Get.toNamed(
+                    AppRoutes.invoiceDetail,
+                    arguments: {'invoice_id': i.id},
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    names[i.customerId] ??
+                                        i.customerName ??
+                                        '—',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  '#${i.id.substring(0, i.id.length < 6 ? i.id.length : 6)}',
+                                  style: const TextStyle(
+                                    color: designGreen,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 3,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  designDate(i.invoiceDate),
+                                  style: const TextStyle(
+                                    color: designMuted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                DesignPill(
+                                  m == 'cash'
+                                      ? 'نقدي'
+                                      : m == 'installments'
+                                      ? 'أقساط'
+                                      : 'آجل',
+                                  color: m == 'installments'
+                                      ? Colors.blue
+                                      : m == 'cash'
+                                      ? designGreen
+                                      : Colors.orange,
+                                ),
+                                if (!i.isPosted)
+                                  Text(
+                                    i.isDraft ? 'مسودة' : 'ملغاة',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: designMuted,
+                                    ),
+                                  ),
+                                if (t != null && m == 'installments')
+                                  Text(
+                                    '${t.months} شهور · مقدم ${designMoney(t.upfrontMinor)}',
+                                    style: const TextStyle(
+                                      color: designMuted,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        width: 92,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            i.formattedNet,
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 29,
+                        child: _InvoiceMenu(
+                          invoice: i,
+                          name: names[i.customerId],
+                          onSchedule: () => setState(() {
+                            tab = 1;
+                            query = i.id;
+                            page = 0;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            )
+        else
+          for (final d in dues)
+            MobileRecordCard(
+              onTap: () => openCustomer(d.customerId),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.event_outlined,
+                    color: d.overdueAt(DateTime.now())
+                        ? Colors.red
+                        : designGreen,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          names[d.customerId] ?? '—',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          'قسط ${d.index} · ${designDate(d.date)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: designMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        designMoney(d.remainingMinor),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        d.remainingMinor == 0
+                            ? 'مسدد'
+                            : d.overdueAt(DateTime.now())
+                            ? 'متأخر'
+                            : 'قادم',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: d.overdueAt(DateTime.now())
+                              ? Colors.red
+                              : designGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        if (tab == 0 && rows.isEmpty || tab == 1 && dues.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(30),
+            child: Center(child: Text('لا توجد بيانات مطابقة')),
+          ),
+        MobileLoadMore(
+          shown: tab == 0 ? rows.length : dues.length,
+          total: tab == 0 ? filtered.length : schedule.length,
+          noun: tab == 0 ? 'فاتورة' : 'قسط',
+          onMore:
+              (tab == 0
+                  ? rows.length < filtered.length
+                  : dues.length < schedule.length)
+              ? () => setState(() => page++)
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _chooseMonth(List<String> months) async {
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: const Text('كل الشهور'),
+              onTap: () => Navigator.pop(context, 'all'),
+            ),
+            for (final m in months)
+              ListTile(title: Text(m), onTap: () => Navigator.pop(context, m)),
+          ],
+        ),
+      ),
+    );
+    if (value != null && mounted) {
+      setState(() {
+        month = value;
+        page = 0;
+      });
+    }
+  }
 }
 
 class _InvoiceMenu extends StatelessWidget {
@@ -461,6 +841,11 @@ class _InvoiceMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
     tooltip: 'إجراءات الفاتورة',
+    icon: Icon(
+      MediaQuery.sizeOf(context).width < 600
+          ? Icons.more_horiz
+          : Icons.more_vert,
+    ),
     onSelected: (v) async {
       if (v == 'view') {
         Get.toNamed(

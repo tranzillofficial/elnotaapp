@@ -1,3 +1,6 @@
+import '../../core/widgets/mobile_design.dart';
+import '../../features/auth/services/auth_service.dart';
+import '../../features/invoices/models/invoice_terms.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/widgets/design_widgets.dart';
@@ -207,6 +210,16 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
                   .toList(),
             ),
           );
+          if (MediaQuery.sizeOf(context).width < 600) {
+            return _mobile(
+              data,
+              outstanding,
+              todayCollected,
+              activities,
+              upcoming,
+              names,
+            );
+          }
           final daily = List.generate(chartDays, (i) {
             final date = today.subtract(Duration(days: chartDays - i - 1));
             final end = date.add(const Duration(days: 1));
@@ -381,6 +394,216 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
       ),
     ),
   );
+  Widget _mobile(
+    AccountData data,
+    int outstanding,
+    int collectedToday,
+    List<(String, String, String, DateTime, int, String, String)> activities,
+    List<ScheduledDue> upcoming,
+    Map<String, String> names,
+  ) {
+    final now = DateTime.now();
+    final late = data.dues.where((d) => d.overdueAt(now)).toList();
+    final monthDues = data.dues
+        .where((d) => d.date.year == now.year && d.date.month == now.month)
+        .fold<int>(0, (sum, d) => sum + d.remainingMinor);
+    final name = Get.isRegistered<AuthService>()
+        ? AuthService.to.currentSession.value?.workspaceName
+        : null;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          name == null ? 'أهلًا بيك' : 'أهلًا، $name',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+        ),
+        Text(
+          designDate(now),
+          style: const TextStyle(color: designMuted, fontSize: 12),
+        ),
+        const SizedBox(height: 14),
+        MobileStat(
+          'إجمالي المستحق',
+          designMoney(outstanding),
+          Icons.account_balance_wallet_outlined,
+          large: true,
+          subtitle: 'الرصيد المتبقي لدى العملاء',
+        ),
+        const SizedBox(height: 10),
+        MobileStatRow(
+          children: [
+            MobileStat(
+              'متأخرات',
+              designMoney(
+                late.fold<int>(0, (sum, d) => sum + d.remainingMinor),
+              ),
+              Icons.access_time,
+              color: Colors.red,
+            ),
+            MobileStat(
+              'أقساط الشهر',
+              designMoney(monthDues),
+              Icons.calendar_month_outlined,
+            ),
+            MobileStat(
+              'تحصيل اليوم',
+              designMoney(collectedToday),
+              Icons.payments_outlined,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'اختصارات سريعة',
+          style: TextStyle(color: designMuted, fontSize: 12),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Get.toNamed(AppRoutes.paymentCreate),
+                icon: const Icon(Icons.payment_outlined, size: 21),
+                label: const Text('تسجيل دفعة'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Get.toNamed(AppRoutes.customerCreate),
+                icon: const Icon(Icons.person_add_outlined, size: 21),
+                label: const Text('عميل جديد'),
+              ),
+            ),
+          ],
+        ),
+        MobileSectionTitle(
+          'أقساط قريبة ومتأخرة',
+          onAll: () => Get.toNamed(
+            AppRoutes.invoices,
+            arguments: {'installments': true},
+          ),
+        ),
+        DesignPanel(
+          child: Column(
+            children: [
+              for (final d in upcoming.take(3))
+                Builder(
+                  builder: (context) {
+                    final days =
+                        DateTime.utc(d.date.year, d.date.month, d.date.day)
+                            .difference(
+                              DateTime.utc(now.year, now.month, now.day),
+                            )
+                            .inDays;
+                    final color = d.overdueAt(now)
+                        ? Colors.red
+                        : days == 0
+                        ? Colors.orange
+                        : designMuted;
+                    return ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                      ),
+                      onTap: () => openCustomer(d.customerId),
+                      leading: Icon(
+                        Icons.event_outlined,
+                        color: color,
+                        size: 23,
+                      ),
+                      title: Text(
+                        names[d.customerId] ?? '—',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        days < 0
+                            ? 'متأخر ${-days} أيام'
+                            : days == 0
+                            ? 'يستحق اليوم'
+                            : days == 1
+                            ? 'غدًا'
+                            : 'بعد $days أيام',
+                        style: TextStyle(color: color, fontSize: 11),
+                      ),
+                      trailing: Text(
+                        designMoney(d.remainingMinor),
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              if (upcoming.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'لا توجد أقساط مستحقة',
+                    style: TextStyle(color: designMuted),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        MobileSectionTitle(
+          'آخر العمليات',
+          onAll: () => Get.toNamed(AppRoutes.payments),
+        ),
+        DesignPanel(
+          child: Column(
+            children: [
+              for (final a in activities.take(3))
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                  onTap: () => openCustomer(a.$1),
+                  leading: Icon(
+                    a.$3 == 'فاتورة'
+                        ? Icons.description_outlined
+                        : Icons.arrow_upward,
+                    color: a.$3 == 'فاتورة' ? designMuted : designGreen,
+                    size: 24,
+                  ),
+                  title: Text(
+                    a.$2,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${a.$3} · ${designDate(a.$4)}',
+                    style: const TextStyle(color: designMuted, fontSize: 10),
+                  ),
+                  trailing: Text(
+                    '${a.$3 == 'فاتورة' ? '' : '+'}${designMoney(a.$5)}',
+                    style: TextStyle(
+                      color: a.$3 == 'فاتورة' ? designInk : designGreen,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              if (activities.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'لا توجد عمليات مسجلة',
+                    style: TextStyle(color: designMuted),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _CollectionChart extends StatelessWidget {

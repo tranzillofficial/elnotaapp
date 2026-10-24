@@ -20,14 +20,26 @@ class AccountingFormFrame extends StatelessWidget {
     canPop: !busy,
     child: LayoutBuilder(
       builder: (context, box) {
+        final mobile = box.maxWidth < 600;
         final content = Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 14, 22, 8),
+              padding: EdgeInsets.fromLTRB(
+                mobile ? 10 : 22,
+                12,
+                mobile ? 10 : 22,
+                8,
+              ),
               child: Row(
                 children: [
+                  if (mobile)
+                    IconButton(
+                      tooltip: 'رجوع',
+                      onPressed: busy ? null : () => Get.back(),
+                      icon: const Icon(Icons.chevron_right),
+                    ),
                   Expanded(
                     child: Text(
                       title,
@@ -37,26 +49,53 @@ class AccountingFormFrame extends StatelessWidget {
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'إغلاق',
-                    onPressed: busy ? null : () => Get.back(),
-                    icon: const Icon(Icons.close),
-                  ),
+                  if (mobile)
+                    Image.asset('assets/images/logo.png', width: 38, height: 38)
+                  else
+                    IconButton(
+                      tooltip: 'إغلاق',
+                      onPressed: busy ? null : () => Get.back(),
+                      icon: const Icon(Icons.close),
+                    ),
                 ],
               ),
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
+                padding: EdgeInsets.symmetric(
+                  horizontal: mobile ? 16 : 24,
                   vertical: 8,
                 ),
                 child: child,
               ),
             ),
-            Padding(padding: const EdgeInsets.all(24), child: footer),
+            Container(
+              padding: EdgeInsets.all(mobile ? 12 : 24),
+              decoration: mobile
+                  ? BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Theme.of(context).dividerColor),
+                      ),
+                    )
+                  : null,
+              child: footer,
+            ),
           ],
         );
+        if (mobile) {
+          return Scaffold(
+            body: SafeArea(
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  inputDecorationTheme: Theme.of(
+                    context,
+                  ).inputDecorationTheme.copyWith(filled: false, isDense: true),
+                ),
+                child: SizedBox.expand(child: content),
+              ),
+            ),
+          );
+        }
         return Scaffold(
           backgroundColor: Colors.transparent,
           body: Stack(
@@ -92,7 +131,12 @@ class AccountingFormFrame extends StatelessWidget {
 }
 
 class FormColumns extends StatelessWidget {
-  const FormColumns({super.key, required this.children});
+  const FormColumns({
+    super.key,
+    required this.children,
+    this.mobileColumns = false,
+  });
+  final bool mobileColumns;
   final List<Widget> children;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -102,7 +146,7 @@ class FormColumns extends StatelessWidget {
       children: children
           .map(
             (child) => SizedBox(
-              width: box.maxWidth < 400
+              width: box.maxWidth < (mobileColumns ? 280 : 400)
                   ? box.maxWidth
                   : (box.maxWidth - (children.length - 1) * 20) /
                         children.length,

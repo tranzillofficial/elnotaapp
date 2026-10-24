@@ -327,14 +327,15 @@ class _CustomerDetailViewState extends State<CustomerDetailView> {
               MediaQuery.sizeOf(context).width < 600 ? 16 : 30,
             ),
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   TextButton.icon(
                     onPressed: () => Get.back(),
                     icon: const Icon(Icons.chevron_right),
                     label: const Text('العملاء / حساب العميل'),
                   ),
-                  const Spacer(),
                   const SyncStatusBadge(),
                 ],
               ),
@@ -448,7 +449,9 @@ class _Info extends StatelessWidget {
       children: [
         Icon(icon, color: designMuted, size: 22),
         const SizedBox(width: 12),
-        Text(label, style: const TextStyle(color: designMuted)),
+        Flexible(
+          child: Text(label, style: const TextStyle(color: designMuted)),
+        ),
         const SizedBox(width: 16),
         Expanded(child: Text(value, textAlign: TextAlign.end)),
       ],

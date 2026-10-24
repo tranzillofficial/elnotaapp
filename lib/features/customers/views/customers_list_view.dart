@@ -1,3 +1,4 @@
+import '../../../core/widgets/mobile_design.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/design_widgets.dart';
@@ -23,6 +24,10 @@ class _CustomersListViewState extends State<CustomersListView> {
       child: AccountDataBuilder(
         builder: (context, data) {
           final all = data.customers;
+          final overdueIds = data.dues
+              .where((d) => d.overdueAt(DateTime.now()))
+              .map((d) => d.customerId)
+              .toSet();
           final filtered =
               all.where((c) {
                 final balance = data.balances[c.id];
@@ -31,7 +36,8 @@ class _CustomersListViewState extends State<CustomersListView> {
                         (c.phone ?? '').contains(query)) &&
                     (filter == 0 ||
                         filter == 1 && due != null && due > 0 ||
-                        filter == 2 && due != null && due <= 0);
+                        filter == 2 && due != null && due <= 0 ||
+                        filter == 3 && overdueIds.contains(c.id));
               }).toList()..sort(
                 (a, b) => newest
                     ? b.createdAt.compareTo(a.createdAt)
@@ -40,6 +46,9 @@ class _CustomersListViewState extends State<CustomersListView> {
           final pages = (filtered.length / 7).ceil();
           final current = pages == 0 ? 0 : page.clamp(0, pages - 1);
           final visible = filtered.skip(current * 7).take(7).toList();
+          if (MediaQuery.sizeOf(context).width < 600) {
+            return _mobile(data, filtered, overdueIds);
+          }
           return ListView(
             padding: EdgeInsets.all(
               MediaQuery.sizeOf(context).width < 600 ? 16 : 38,
@@ -295,6 +304,214 @@ class _CustomersListViewState extends State<CustomersListView> {
       ),
     ),
   );
+  Widget _mobile(
+    AccountData data,
+    List<CustomerModel> filtered,
+    Set<String> overdue,
+  ) {
+    final rows = filtered.take((page + 1) * 6).toList();
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'العملاء',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: () => Get.toNamed(AppRoutes.customerCreate),
+              icon: const Icon(Icons.add, size: 19),
+              label: const Text('عميل جديد'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        MobileStatRow(
+          children: [
+            MobileStat(
+              'إجمالي العملاء',
+              '${data.customers.length}',
+              Icons.contact_page_outlined,
+              color: Colors.blue,
+            ),
+            MobileStat(
+              'إجمالي المستحق',
+              designMoney(
+                data.balances.values.fold<int>(
+                  0,
+                  (sum, b) =>
+                      sum + (b.outstandingMinor > 0 ? b.outstandingMinor : 0),
+                ),
+              ),
+              Icons.account_balance_wallet_outlined,
+            ),
+            MobileStat(
+              'عليهم متأخرات',
+              '${overdue.length}',
+              Icons.alarm_outlined,
+              color: Colors.red,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          onChanged: (v) => setState(() {
+            query = v;
+            page = 0;
+          }),
+          decoration: const InputDecoration(
+            hintText: 'ابحث باسم العميل أو رقم الهاتف',
+            prefixIcon: Icon(Icons.search),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 12),
+        MobileFilters<int>(
+          values: const [(0, 'الكل'), (1, 'مستحق'), (3, 'متأخر'), (2, 'مسدد')],
+          selected: filter,
+          onChanged: (v) => setState(() {
+            filter = v;
+            page = 0;
+          }),
+          trailing: IconButton(
+            tooltip: newest ? 'ترتيب بالاسم' : 'الأحدث أولًا',
+            onPressed: () => setState(() {
+              newest = !newest;
+              page = 0;
+            }),
+            icon: const Icon(Icons.swap_vert, color: designMuted),
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final c in rows)
+          Builder(
+            builder: (context) {
+              final b = data.balances[c.id];
+              final late = overdue.contains(c.id);
+              final count = data.invoices
+                  .where((i) => i.customerId == c.id)
+                  .length;
+              return MobileRecordCard(
+                onTap: () => openCustomer(c.id),
+                child: Row(
+                  children: [
+                    SizedBox(width: 31, child: DesignAvatar(c.name)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            c.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            c.phone ?? '—',
+                            textDirection: TextDirection.ltr,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: designMuted,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: DesignPill(
+                              b == null
+                                  ? 'تحميل'
+                                  : late
+                                  ? 'متأخر'
+                                  : b.hasCredit
+                                  ? 'رصيد دائن'
+                                  : b.isZero
+                                  ? 'مسدد'
+                                  : 'مستحق',
+                              color: late
+                                  ? Colors.red
+                                  : b?.outstandingMinor == 0
+                                  ? designGreen
+                                  : Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '$count فواتير',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: designMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'المتبقي',
+                            style: TextStyle(fontSize: 10, color: designMuted),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              b == null ? '—' : designMoney(b.outstandingMinor),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
+                                color: late
+                                    ? Colors.red
+                                    : b?.hasCredit == true
+                                    ? designGreen
+                                    : designInk,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 27, child: _CustomerMenu(customer: c)),
+                  ],
+                ),
+              );
+            },
+          ),
+        if (rows.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(30),
+            child: Center(child: Text('لا يوجد عملاء مطابقون')),
+          ),
+        MobileLoadMore(
+          shown: rows.length,
+          total: filtered.length,
+          noun: 'عميل',
+          onMore: rows.length < filtered.length
+              ? () => setState(() => page++)
+              : null,
+        ),
+      ],
+    );
+  }
 }
 
 class _CustomerMenu extends StatelessWidget {
@@ -303,7 +520,11 @@ class _CustomerMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
     tooltip: 'إجراءات العميل',
-    icon: const Icon(Icons.more_vert),
+    icon: Icon(
+      MediaQuery.sizeOf(context).width < 600
+          ? Icons.more_horiz
+          : Icons.more_vert,
+    ),
     onSelected: (value) async {
       switch (value) {
         case 'view':

@@ -9,11 +9,13 @@ class CustomerSearchField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.enabled = true,
+    this.showLabel = true,
   });
   final List<CustomerChoice> customers;
   final String? value;
   final ValueChanged<String?> onChanged;
   final bool enabled;
+  final bool showLabel;
 
   String normalize(String text) {
     const arabic = '٠١٢٣٤٥٦٧٨٩';
@@ -47,8 +49,10 @@ class CustomerSearchField extends StatelessWidget {
           focusNode: focus,
           enabled: enabled,
           decoration: InputDecoration(
-            labelText: 'العميل',
-            hintText: 'ابحث باسم العميل أو رقم الموبايل',
+            labelText: showLabel ? 'العميل' : null,
+            hintText: constraints.maxWidth < 220
+                ? 'ابحث عن عميل'
+                : 'ابحث باسم العميل أو رقم الموبايل',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: controller.text.isEmpty
                 ? null

@@ -110,3 +110,11 @@ Non-entitled accounts see a locked catalog with refresh-access action.
 Desktop GetX toasts and Material snackbars have maximum/target width 440px.
 
 The compact rail uses 23px icons and 44px navigation targets, scrolls on short screens, and keeps the account menu visible. Products precede settings without changing route indices. Admin has separate accounts, activation, releases and platform-settings sections.
+
+
+## Approved mobile references (24 October 2026)
+Phone widths below 600px use the supplied Arabic mobile layouts: a compact logo/header, three bottom destinations (invoices, create invoice, More), bordered record cards, three summary cards, search/filter controls and incremental loading. Home uses a receivables hero, three metrics, quick actions, dues and recent activity. More groups existing destinations in three-column grids and shows the actual account/backup state.
+
+Invoice creation is fullscreen on phones, with a fixed save/print footer, item/amount selector and inline quantity, unit-price, line-total and delete controls. The existing controller and ledger calculations remain authoritative. Other account tables become labeled mobile records; desktop tables and rails remain in use. Brand illustrations in the More reference are represented by bundled Material icons; no additional image dependency was introduced.
+
+Validation: 83 tests passed, one environment-specific demo test skipped; analyzer clean. RTL screen coverage includes 320px, 390px and 1586px. Interactive invoice tests cover add, quantity increment, delete and amount-only selection. Browser review used isolated local demo data at 320px/390px. Physical Android installation remains unverified. No schema, cloud-sync behavior or dependency-manifest changes.
