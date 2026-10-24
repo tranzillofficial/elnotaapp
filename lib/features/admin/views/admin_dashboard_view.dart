@@ -7,13 +7,18 @@ import '../controllers/admin_controller.dart';
 import '../repositories/admin_repository.dart';
 
 class AdminDashboardView extends StatefulWidget {
-  const AdminDashboardView({super.key});
+  const AdminDashboardView({super.key, this.gateway});
+  final AdminGateway? gateway;
   @override
   State<AdminDashboardView> createState() => _AdminDashboardViewState();
 }
 
 class _AdminDashboardViewState extends State<AdminDashboardView> {
-  late final AdminController ctrl = Get.put(AdminController(AdminRepository()));
+  final String controllerTag = UniqueKey().toString();
+  late final AdminController ctrl = Get.put(
+    AdminController(widget.gateway ?? AdminRepository()),
+    tag: controllerTag,
+  );
   int tab = 0;
   String search = '';
   Future<bool> confirm(String title, String message) async =>
@@ -37,7 +42,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       false;
   @override
   void dispose() {
-    Get.delete<AdminController>();
+    Get.delete<AdminController>(tag: controllerTag);
     super.dispose();
   }
 
