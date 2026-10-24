@@ -2,9 +2,10 @@
   "site": "https://elnota.shop",
   "webApp": "https://elnotaapp-web-preview.vercel.app",
   "android": {
-    "version": "1.0.0",
-    "architecture": "arm64",
-    "url": "https://github.com/tranzillofficial/elnotaapp/releases/download/preview-1.0.0-20261024/ElNota-1.0.0-android-arm64.apk",
+    "version": "1.0.1",
+    "build": 2002,
+    "architecture": "arm32+arm64",
+    "url": "https://github.com/tranzillofficial/elnotaapp/releases/download/preview-1.0.1-20261024/ElNota-1.0.1-android.apk",
     "channel": "preview"
   },
   "windowsX64": {
