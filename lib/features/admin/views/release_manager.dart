@@ -1,3 +1,4 @@
+import '../../../core/widgets/accounting_form_frame.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/supabase_service.dart';
@@ -17,6 +18,7 @@ class _ReleaseManagerState extends State<ReleaseManager> {
   final notes = TextEditingController();
   String platform = 'android';
   bool store = false;
+  bool externalLink = false;
   bool busy = false;
   String? message;
   PlatformFile? file;
@@ -41,8 +43,7 @@ class _ReleaseManagerState extends State<ReleaseManager> {
       final size = await selected.length();
       if (selected.extension?.toLowerCase() != 'zip' ||
           size == null ||
-          size == 0 ||
-          size > 50 * 1024 * 1024) {
+          size == 0) {
         throw StateError('Invalid file');
       }
       final client = SupabaseService.to.client!;
@@ -62,7 +63,7 @@ class _ReleaseManagerState extends State<ReleaseManager> {
       if (mounted) {
         setState(
           () => message =
-              'تعذر رفع الملفات المساعدة. استخدم ZIP بحد أقصى 50 ميجابايت.',
+              'تعذر الرفع إلى مزود التخزين. للملفات الكبيرة استخدم رابط إصدار منشور على GitHub.',
         );
       }
     } finally {
@@ -99,10 +100,23 @@ class _ReleaseManagerState extends State<ReleaseManager> {
       return;
     }
     if (!store &&
-        (file == null ||
-            (await file!.length() ?? 0) == 0 ||
-            (await file!.length() ?? 0) > 50 * 1024 * 1024)) {
-      setState(() => message = 'اختر ملفًا صالحًا بحد أقصى 50 ميجابايت');
+        !externalLink &&
+        (file == null || (await file!.length() ?? 0) == 0)) {
+      setState(() => message = 'اختر ملف الإصدار');
+      return;
+    }
+    if (externalLink &&
+        !store &&
+        (uri == null ||
+            uri.scheme != 'https' ||
+            uri.host != 'github.com' ||
+            !uri.path.startsWith(
+              '/tranzillofficial/elnotaapp/releases/download/',
+            ))) {
+      setState(
+        () => message =
+            'استخدم رابط تحميل من إصدارات مستودع elnotaapp على GitHub',
+      );
       return;
     }
     setState(() {
@@ -115,7 +129,7 @@ class _ReleaseManagerState extends State<ReleaseManager> {
       }
       final client = SupabaseService.to.client!;
       var download = url.text.trim();
-      if (!store) {
+      if (!store && !externalLink) {
         final extension = file!.extension?.toLowerCase();
         if (!(platform == 'android' ? ['apk'] : ['exe', 'msi']).contains(
           extension,
@@ -150,7 +164,7 @@ class _ReleaseManagerState extends State<ReleaseManager> {
       if (mounted) {
         setState(
           () => message =
-              'تعذر نشر الإصدار. تأكد من صلاحيات الإدارة وتفعيل مخزن الإصدارات. يمكنك إعادة المحاولة؛ لم يتم تعديل بيانات العملاء.',
+              'تعذر النشر. راجع صلاحياتك واتصالك. لو تجاوز الملف حدود مزود التخزين، اختار رابط إصدار GitHub.',
         );
       }
     } finally {
@@ -159,108 +173,211 @@ class _ReleaseManagerState extends State<ReleaseManager> {
   }
 
   @override
-  Widget build(BuildContext context) => DesignPanel(
-    title: 'الإصدارات والتحميلات',
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'ارفع APK لأندرويد أو مثبّت Windows. يمكن التحويل لرابط المتجر عند توفره. الملفات المنشورة متاحة للجميع؛ لا ترفع مفاتيح توقيع أو ملفات إعدادات خاصة.',
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: platform,
-            decoration: const InputDecoration(labelText: 'المنصة'),
-            items: const [
-              DropdownMenuItem(value: 'android', child: Text('Android')),
-              DropdownMenuItem(value: 'windows', child: Text('Windows 64-bit')),
-              DropdownMenuItem(value: 'ios', child: Text('iOS')),
-            ],
-            onChanged: busy
-                ? null
-                : (value) => setState(() {
-                    platform = value!;
-                    file = null;
-                    store = platform == 'ios';
-                  }),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: version,
-            enabled: !busy,
-            decoration: const InputDecoration(
-              labelText: 'رقم الإصدار',
-              hintText: '1.0.1',
-            ),
-          ),
-          if (platform != 'windows')
-            SwitchListTile(
-              title: const Text('استخدام رابط المتجر بدل الملف'),
-              value: store,
-              onChanged: busy || platform == 'ios'
-                  ? null
-                  : (value) => setState(() {
-                      store = value;
-                      file = null;
-                    }),
-            ),
-          if (store)
-            TextField(
-              controller: url,
-              enabled: !busy,
-              decoration: const InputDecoration(
-                labelText: 'رابط Google Play أو App Store',
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topRight,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 900),
+      child: DesignPanel(
+        title: 'نشر إصدار جديد',
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FormColumns(
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: platform,
+                    decoration: const InputDecoration(
+                      labelText: 'المنصة',
+                      prefixIcon: Icon(Icons.devices_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'android',
+                        child: Text('Android'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'windows',
+                        child: Text('Windows 64-bit'),
+                      ),
+                      DropdownMenuItem(value: 'ios', child: Text('iOS')),
+                    ],
+                    onChanged: busy
+                        ? null
+                        : (value) => setState(() {
+                            platform = value!;
+                            file = null;
+                            store = platform == 'ios';
+                            externalLink = false;
+                          }),
+                  ),
+                  TextField(
+                    controller: version,
+                    enabled: !busy,
+                    decoration: const InputDecoration(
+                      labelText: 'رقم الإصدار',
+                      hintText: '1.0.1',
+                      prefixIcon: Icon(Icons.new_releases_outlined),
+                    ),
+                  ),
+                ],
               ),
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      final result = await FilePicker.pickFiles(
-                        type: FileType.custom,
-                        allowedExtensions: platform == 'android'
-                            ? ['apk']
-                            : ['exe', 'msi'],
-                      );
-                      if (mounted && result.isNotEmpty) {
-                        setState(() => file = result.single);
-                      }
-                    },
-              icon: const Icon(Icons.upload_file),
-              label: Text(file?.name ?? 'اختيار ملف الإصدار (حتى 50 ميجابايت)'),
-            ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: notes,
-            enabled: !busy,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'ملاحظات الإصدار'),
+              const SizedBox(height: 20),
+              const Text(
+                'مصدر التحميل',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (platform != 'ios')
+                    ChoiceChip(
+                      label: const Text('رفع ملف'),
+                      avatar: const Icon(Icons.upload_file, size: 18),
+                      selected: !store && !externalLink,
+                      onSelected: busy
+                          ? null
+                          : (_) => setState(() {
+                              store = false;
+                              externalLink = false;
+                            }),
+                    ),
+                  if (platform != 'ios')
+                    ChoiceChip(
+                      label: const Text('رابط إصدار GitHub'),
+                      selected: externalLink && !store,
+                      onSelected: busy
+                          ? null
+                          : (_) => setState(() {
+                              externalLink = true;
+                              store = false;
+                            }),
+                    ),
+                  if (platform != 'windows')
+                    ChoiceChip(
+                      label: const Text('رابط المتجر'),
+                      selected: store,
+                      onSelected: busy
+                          ? null
+                          : (_) => setState(() {
+                              store = true;
+                              externalLink = false;
+                            }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (store || externalLink)
+                TextField(
+                  controller: url,
+                  enabled: !busy,
+                  textDirection: TextDirection.ltr,
+                  decoration: InputDecoration(
+                    labelText: store
+                        ? 'رابط التطبيق في المتجر'
+                        : 'رابط الملف المنشور على GitHub',
+                    prefixIcon: const Icon(Icons.link),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00845B).withValues(alpha: 0.04),
+                    border: Border.all(color: designBorder),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 30,
+                        color: Color(0xFF00845B),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        file?.name ??
+                            (platform == 'android'
+                                ? 'اختر ملف APK'
+                                : 'اختر مثبّت EXE أو MSI'),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                final files = await FilePicker.pickFiles(
+                                  type: FileType.custom,
+                                  allowedExtensions: platform == 'android'
+                                      ? ['apk']
+                                      : ['exe', 'msi'],
+                                );
+                                if (mounted && files.isNotEmpty) {
+                                  setState(() => file = files.single);
+                                }
+                              },
+                        child: const Text('اختيار الملف'),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 10),
+              const Text(
+                'التطبيق لا يفرض حدًا لحجم الإصدار. لو تجاوز الملف حدود مزود التخزين، انشره على GitHub واستخدم رابط الإصدار.',
+                style: TextStyle(color: designMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: notes,
+                enabled: !busy,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'ما الجديد في الإصدار؟',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: busy ? null : publish,
+                  icon: const Icon(Icons.publish, size: 18),
+                  label: Text(busy ? 'جارٍ النشر…' : 'نشر الإصدار'),
+                ),
+              ),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (message != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(message!),
+                ),
+              const Divider(height: 32),
+              const Text(
+                'الملفات المساعدة',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : uploadSupport,
+                  icon: const Icon(Icons.folder_zip_outlined, size: 18),
+                  label: const Text('رفع ملف ZIP'),
+                ),
+              ),
+              if (supportUrl != null)
+                SelectableText('رابط الملفات: $supportUrl'),
+            ],
           ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: busy ? null : publish,
-            icon: const Icon(Icons.publish),
-            label: Text(
-              busy ? 'جارٍ الرفع والنشر…' : 'نشر الإصدار في صفحة التحميلات',
-            ),
-          ),
-          if (message != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(message!),
-            ),
-          const Divider(height: 32),
-          OutlinedButton.icon(
-            onPressed: busy ? null : uploadSupport,
-            icon: const Icon(Icons.folder_zip_outlined),
-            label: const Text('رفع ملفات مساعدة ZIP (حتى 50 ميجابايت)'),
-          ),
-          if (supportUrl != null)
-            SelectableText('رابط الملفات المساعدة: $supportUrl'),
-        ],
+        ),
       ),
     ),
   );

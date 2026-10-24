@@ -191,10 +191,12 @@ class _MobileShell extends StatelessWidget {
     return Scaffold(
       body: body,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onDestinationSelected,
+        selectedIndex: const [0, 1, 2, 3, 5, 4].indexOf(selectedIndex),
+        onDestinationSelected: (i) =>
+            onDestinationSelected(const [0, 1, 2, 3, 5, 4][i]),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: _destinations
+        destinations: const [0, 1, 2, 3, 5, 4]
+            .map((i) => _destinations[i])
             .map(
               (d) => NavigationDestination(
                 icon: _buildNavBadge(

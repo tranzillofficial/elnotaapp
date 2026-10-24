@@ -24,19 +24,11 @@ class LoginView extends GetView<AuthController> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // App Icon / Logo
-                  Container(
+                  Image.asset(
+                    'assets/images/logo.png',
                     width: 72,
                     height: 72,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.account_balance_wallet_rounded,
-                      size: 40,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -57,24 +49,6 @@ class LoginView extends GetView<AuthController> {
                   ),
                   const SizedBox(height: 32),
 
-                  OutlinedButton.icon(
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (_) => Dialog(
-                        clipBehavior: Clip.antiAlias,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 520,
-                            maxHeight: 700,
-                          ),
-                          child: const DeviceLoginView(dialog: true),
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.qr_code_2),
-                    label: const Text('الدخول من تطبيق الموبايل'),
-                  ),
-                  const SizedBox(height: 16),
                   // Mode Toggle: Login vs Register
                   Obx(
                     () => SegmentedButton<bool>(
@@ -169,6 +143,24 @@ class LoginView extends GetView<AuthController> {
                   ),
                   const SizedBox(height: 16),
 
+                  OutlinedButton.icon(
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => Dialog(
+                        clipBehavior: Clip.antiAlias,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 520,
+                            maxHeight: 700,
+                          ),
+                          child: const DeviceLoginView(dialog: true),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('دخول سريع برمز QR'),
+                  ),
+                  const SizedBox(height: 16),
                   // Continue Offline
                   if (!kIsWeb)
                     OutlinedButton.icon(

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # The preview supplies only public Auth client values. No ledger write flags.
-# Never enable the relational sync or admin write flags here.
+# Relational sync stays disabled. Admin actions require server-verified admin permission.
 if [[ -z "${SUPABASE_URL:-}" || -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]]; then
   echo 'Preview Supabase URL and publishable key are required.' >&2
   exit 1
@@ -16,6 +16,7 @@ flutter config --no-analytics
 flutter pub get --enforce-lockfile
 flutter build web --release --no-pub \
   --no-wasm-dry-run \
+  --dart-define=ENABLE_ADMIN_WRITES=true \
   --dart-define="SUPABASE_URL=$SUPABASE_URL" \
   --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
 mkdir -p build/site

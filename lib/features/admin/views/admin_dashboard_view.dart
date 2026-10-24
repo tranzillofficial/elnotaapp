@@ -69,6 +69,69 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           ),
         );
       }
+      if (tab == 2) {
+        return ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const DesignHeader(
+              title: 'الإصدارات والتحميلات',
+              subtitle: 'إدارة نسخ التطبيق وروابط المتاجر والملفات المساعدة',
+            ),
+            const SizedBox(height: 20),
+            const ReleaseManager(),
+          ],
+        );
+      }
+      if (tab == 3) {
+        return ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const DesignHeader(
+              title: 'إعدادات المنصة',
+              subtitle: 'الصلاحيات وإدارة التوزيع',
+            ),
+            DesignPanel(
+              title: 'إدارة المنصة',
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'حسابك مسؤول معتمد. تُراجع الصلاحيات على السيرفر عند كل إجراء.',
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      leading: const Icon(Icons.people_outline),
+                      title: const Text('حسابات العملاء والاشتراكات'),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => setState(() => tab = 0),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.verified_user_outlined),
+                      title: const Text('طلبات التفعيل'),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => setState(() => tab = 1),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.download_outlined),
+                      title: const Text(
+                        'إصدارات Android وWindows وروابط المتاجر',
+                      ),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => setState(() => tab = 2),
+                    ),
+                    const Divider(),
+                    const Text(
+                      'المزامنة مع دفاتر النسخة القديمة غير مفعلة. إدارة المنصة لا تحذف بيانات العملاء.',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      }
       final accounts = ctrl.accountRows
           .where(
             (a) => '${a['email']} ${a['business_name']}'.toLowerCase().contains(
@@ -106,8 +169,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          const ReleaseManager(),
           const SizedBox(height: 18),
           DesignStats(
             children: [
@@ -355,15 +416,35 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       );
     });
     return Scaffold(
+      appBar: MediaQuery.sizeOf(context).width < 600
+          ? AppBar(
+              title: const Text('إدارة المنصة'),
+              actions: [
+                PopupMenuButton<int>(
+                  onSelected: (i) => setState(() => tab = i),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 0, child: Text('حسابات العملاء')),
+                    PopupMenuItem(value: 1, child: Text('طلبات التفعيل')),
+                    PopupMenuItem(
+                      value: 2,
+                      child: Text('الإصدارات والتحميلات'),
+                    ),
+                    PopupMenuItem(value: 3, child: Text('إعدادات المنصة')),
+                  ],
+                ),
+                const AccountMenu(),
+              ],
+            )
+          : null,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, box) => Row(
             children: [
               if (box.maxWidth >= 600)
                 DesignSidebar(
-                  selected: 4,
-                  onSelect: (i) =>
-                      Get.offAllNamed(AppRoutes.home, arguments: {'tab': i}),
+                  admin: true,
+                  selected: tab,
+                  onSelect: (i) => setState(() => tab = i),
                 ),
               Expanded(child: body),
             ],

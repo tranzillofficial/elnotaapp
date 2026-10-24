@@ -78,7 +78,7 @@ Loading, empty, offline, syncing, synced, conflict, permission denied, stale ses
 The supplied dashboard, customers table, and customer account images define the
 current light desktop appearance: white canvas, green `#00845B` navigation rail,
 navy `#101326` text, secondary `#59698D`, and borders `#E4E9F2`.
-The desktop rail is 92px wide on the leading RTL edge. Content uses bordered
+The desktop rail is 72px wide on the leading RTL edge. Content uses bordered
 panels, compact tables, green receipt charts, and responsive summary cards.
 On narrow screens, panels stack and wide tables scroll horizontally.
 
@@ -108,3 +108,5 @@ Product forms and customer creation/editing use the shared centered form frame.
 Image selection compresses JPG/PNG/WebP to WebP (960px maximum, 512KiB maximum).
 Non-entitled accounts see a locked catalog with refresh-access action.
 Desktop GetX toasts and Material snackbars have maximum/target width 440px.
+
+The compact rail uses 23px icons and 44px navigation targets, scrolls on short screens, and keeps the account menu visible. Products precede settings without changing route indices. Admin has separate accounts, activation, releases and platform-settings sections.

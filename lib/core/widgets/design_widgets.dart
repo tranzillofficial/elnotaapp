@@ -1,3 +1,4 @@
+import '../../features/auth/services/auth_service.dart';
 import '../../features/invoices/models/invoice_terms.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -473,29 +474,45 @@ class DesignSidebar extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelect,
+    this.admin = false,
   });
   final int selected;
+  final bool admin;
   final ValueChanged<int> onSelect;
   @override
   Widget build(BuildContext context) {
-    const icons = [
-      Icons.home_rounded,
-      Icons.people_outline,
-      Icons.description_outlined,
-      Icons.payment_outlined,
-      Icons.settings_outlined,
-      Icons.inventory_2_outlined,
-    ];
-    const labels = [
-      'الرئيسية',
-      'العملاء',
-      'الفواتير',
-      'الدفعات',
-      'الإعدادات',
-      'المنتجات',
-    ];
+    final icons = admin
+        ? [
+            Icons.people_outline,
+            Icons.verified_user_outlined,
+            Icons.download_outlined,
+            Icons.tune,
+          ]
+        : [
+            Icons.home_rounded,
+            Icons.people_outline,
+            Icons.description_outlined,
+            Icons.payment_outlined,
+            Icons.settings_outlined,
+            Icons.inventory_2_outlined,
+          ];
+    final labels = admin
+        ? [
+            'حسابات العملاء',
+            'طلبات التفعيل',
+            'الإصدارات والتحميلات',
+            'إعدادات المنصة',
+          ]
+        : [
+            'الرئيسية',
+            'العملاء',
+            'الفواتير',
+            'الدفعات',
+            'الإعدادات',
+            'المنتجات',
+          ];
     return Container(
-      width: 92,
+      width: 72,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -506,46 +523,108 @@ class DesignSidebar extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 28),
+            const SizedBox(height: 16),
             Image.asset(
               'assets/images/logo.png',
-              width: 70,
-              height: 55,
-              fit: BoxFit.cover,
+              width: 42,
+              height: 42,
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 68),
-            for (var i = 0; i < icons.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 19),
-                child: Tooltip(
-                  message: labels[i],
-                  child: Material(
-                    color: selected == i
-                        ? const Color(0xFF15A16E)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () => onSelect(i),
-                      child: SizedBox(
-                        width: 64,
-                        height: 62,
-                        child: Icon(icons[i], size: 31, color: Colors.white),
+            const SizedBox(height: 24),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (final i in (admin ? [0, 1, 2, 3] : [0, 1, 2, 3, 5, 4]))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Tooltip(
+                          message: labels[i],
+                          child: Material(
+                            color: selected == i
+                                ? const Color(0xFF15A16E)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => onSelect(i),
+                              child: SizedBox(
+                                width: 46,
+                                height: 44,
+                                child: Icon(
+                                  icons[i],
+                                  size: 23,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                  ],
                 ),
               ),
-            const Spacer(),
+            ),
             const Padding(
-              padding: EdgeInsets.only(bottom: 35),
-              child: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, color: Color(0xFF8C95A6), size: 32),
-              ),
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: AccountMenu(),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class AccountMenu extends StatelessWidget {
+  const AccountMenu({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final auth = Get.isRegistered<AuthService>() ? AuthService.to : null;
+    final session = auth?.currentSession.value;
+    return PopupMenuButton<String>(
+      tooltip: 'الحساب',
+      position: PopupMenuPosition.over,
+      onSelected: (value) async {
+        if (value == 'logout') {
+          await auth?.signOut();
+          Get.offAllNamed(AppRoutes.login);
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                session?.workspaceName ?? 'الحساب',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                session?.email ?? 'غير مسجل',
+                textDirection: TextDirection.ltr,
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout, size: 18),
+              SizedBox(width: 8),
+              Text('تسجيل الخروج'),
+            ],
+          ),
+        ),
+      ],
+      child: const CircleAvatar(
+        radius: 18,
+        backgroundColor: Colors.white,
+        child: Icon(Icons.person_outline, color: Color(0xFF59698D), size: 23),
       ),
     );
   }
