@@ -150,11 +150,23 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                     'بنود الفاتورة',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  TextButton(
-                    onPressed: () => ctrl.isManualAmount.toggle(),
-                    child: Text(
-                      ctrl.isManualAmount.value ? 'إدخال بنود' : 'مبلغ يدوي',
-                    ),
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(
+                        value: false,
+                        icon: Icon(Icons.list_alt_outlined, size: 18),
+                        label: Text('بنود الفاتورة'),
+                      ),
+                      ButtonSegment(
+                        value: true,
+                        icon: Icon(Icons.edit_outlined, size: 18),
+                        label: Text('مبلغ يدوي'),
+                      ),
+                    ],
+                    selected: {ctrl.isManualAmount.value},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (selection) =>
+                        ctrl.isManualAmount.value = selection.first,
                   ),
                   OutlinedButton.icon(
                     onPressed: () {
@@ -181,7 +193,12 @@ class _InvoiceFormViewState extends State<InvoiceFormView> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(suffixText: 'ج.م'),
+                    decoration: const InputDecoration(
+                      hintText: '0.00',
+                      prefixIcon: Icon(Icons.calculate_outlined),
+                      suffixText: 'ج.م',
+                      helperText: 'إجمالي الفاتورة بدون إدخال بنود',
+                    ),
                   ),
                 )
               else
