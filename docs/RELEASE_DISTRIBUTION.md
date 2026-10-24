@@ -18,3 +18,7 @@ Build with Flutter release, public Auth defines only, then compile distribution/
 
 ## QR authentication
 The additive device-login function and elnota_device_links table are deployed. CORS defaults to the independent preview web origin. Create/poll use a random browser proof; inspect/approve require a confirmed authenticated activated account. Codes expire in three minutes and are consumed atomically. No ledger synchronization is enabled by pairing. Full phone-camera pairing must be verified on a physical Android device.
+
+## Android 1.0.2 compatibility preview
+The optional Gradle property elnotaApplicationId selects shop.elnota.preview for isolated test installs; default application identity is unchanged. The new preview does not replace or migrate com.example.elnota data. Android and iOS display names are ElNota. Native libraries are compressed with useLegacyPackaging; this reduces download size, but libraries are extracted during installation. Per-ABI APKs remove other architectures entirely. Keep minSdk unchanged; never claim older Android support without testing.
+Release metadata has an optional assets JSON object (arm32/arm64). Landing renders only allowlisted asset URLs. No customer, account, ledger or backup schema was changed.

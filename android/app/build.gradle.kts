@@ -25,13 +25,19 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.elnota"
+        // Preview builds can install alongside legacy apps without replacing their data.
+        applicationId = providers.gradleProperty("elnotaApplicationId")
+            .getOrElse("com.example.elnota")
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    packaging {
+        jniLibs.useLegacyPackaging = true
     }
 
     signingConfigs {

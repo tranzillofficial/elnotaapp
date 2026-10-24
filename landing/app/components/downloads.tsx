@@ -1,4 +1,4 @@
-type Release = { platform: string; version: string; distribution: string; url: string; notes?: string };
+type Release = { platform: string; version: string; distribution: string; url: string; notes?: string; assets?: Record<string, unknown> };
 
 function safeUrl(release: Release): boolean {
   try {
@@ -17,7 +17,7 @@ async function releases(): Promise<Release[]> {
   const key = process.env.RELEASE_SUPABASE_PUBLISHABLE_KEY;
   if (!base || !key) return [];
   try {
-    const response = await fetch(`${base}/rest/v1/elnota_app_releases?published=eq.true&select=platform,version,distribution,url,notes`, {
+    const response = await fetch(`${base}/rest/v1/elnota_app_releases?published=eq.true&select=platform,version,distribution,url,notes,assets`, {
       headers: { apikey: key }, next: { revalidate: 60 }, signal: AbortSignal.timeout(4000),
     });
     if (!response.ok) return [];
@@ -36,8 +36,9 @@ export default async function Downloads() {
       { id: 'ios', name: 'iOS', icon: '◎', description: 'النوتة على iPhone وiPad.', label: 'App Store' },
     ].map(platform => {
       const release = rows.find(row => row.platform === platform.id);
+      const variants = platform.id === 'android' && release?.distribution === 'file' ? Object.entries(release.assets ?? {}).filter(([arch, url]) => ['arm32', 'arm64'].includes(arch) && typeof url === 'string' && safeUrl({ ...release, url })).map(([arch, url]) => ({ arch, url: url as string })) : [];
       return <article className="download" key={platform.id}><span className="platform" aria-hidden="true">{platform.icon}</span><h3>{platform.name}</h3><p>{platform.description}</p>
-        {release ? <><a className="button" href={release.url} rel="noopener noreferrer">{release.distribution === 'store' ? 'افتح صفحة التطبيق في المتجر' : platform.label}</a><small>الإصدار {release.version}</small>{release.notes && <small>{release.notes}</small>}</> : <><span className="pending">{platform.id === 'ios' ? 'قريبًا' : 'ملف الإصدار قيد التجهيز'}</span><small>{platform.id === 'ios' ? 'هنعلن هنا بمجرد توفر التطبيق على App Store.' : 'رابط التحميل يظهر هنا بعد نشر الإصدار من الإدارة.'}</small></>}
+        {release ? <>{variants.length ? variants.map(variant => <a className="button" key={variant.arch} href={variant.url} rel="noopener noreferrer" style={{ marginBottom: 8 }}>تحميل Android {variant.arch === 'arm32' ? '32-bit' : '64-bit'}</a>) : <a className="button" href={release.url} rel="noopener noreferrer">{release.distribution === 'store' ? 'افتح صفحة التطبيق في المتجر' : platform.label}</a>}<small>الإصدار {release.version}</small>{release.notes && <small>{release.notes}</small>}</> : <><span className="pending">{platform.id === 'ios' ? 'قريبًا' : 'ملف الإصدار قيد التجهيز'}</span><small>{platform.id === 'ios' ? 'هنعلن هنا بمجرد توفر التطبيق على App Store.' : 'رابط التحميل يظهر هنا بعد نشر الإصدار من الإدارة.'}</small></>}
         {platform.id === 'windows' && <small>يتطلب Windows 64-bit. أجهزة 32-bit تستخدم نسخة الويب.</small>}
       </article>;
     })}</div></div></section>;
