@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/utils/app_routes.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../services/auth_service.dart';
 
@@ -43,7 +42,8 @@ class AuthController extends GetxController {
     }
 
     if (success) {
-      Get.offAllNamed(AppRoutes.home);
+      final destination = await auth.landingRoute();
+      if (!isClosed) Get.offAllNamed(destination);
     } else if (isSignUp.value &&
         (auth.lastError.value?.startsWith('تم إنشاء الحساب') ?? false)) {
       showSuccessSnack(auth.lastError.value!);

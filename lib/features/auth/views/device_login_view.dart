@@ -87,7 +87,8 @@ class _DeviceLoginViewState extends State<DeviceLoginView> {
         if (response.session == null) throw StateError('Invalid session');
         if (!mounted) return;
         await AuthService.to.acceptServerSession();
-        Get.offAllNamed(AppRoutes.home);
+        final destination = await AuthService.to.landingRoute();
+        if (mounted) Get.offAllNamed(destination);
       } else if (result['status'] == 'expired') {
         timer?.cancel();
         setState(() {

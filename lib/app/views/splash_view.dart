@@ -1,3 +1,4 @@
+import '../../features/auth/services/auth_service.dart';
 import '../../core/services/supabase_service.dart';
 import '../../features/auth/services/device_login_service.dart';
 import 'package:flutter/material.dart';
@@ -42,14 +43,18 @@ class _SplashViewState extends State<SplashView>
   }
 
   void _navigateAfterDelay() {
-    Future.delayed(const Duration(milliseconds: 1800), () {
+    Future.delayed(const Duration(milliseconds: 1800), () async {
       if (mounted) {
         final loggedIn =
             Get.isRegistered<SupabaseService>() &&
             SupabaseService.to.client?.auth.currentSession != null;
-        Get.offAllNamed(
-          !loggedIn && !AppRuntime.demo ? AppRoutes.login : AppRoutes.home,
-        );
+        final destination = AppRuntime.demo
+            ? AppRoutes.home
+            : !loggedIn
+            ? AppRoutes.login
+            : await AuthService.to.landingRoute();
+        if (!mounted) return;
+        Get.offAllNamed(destination);
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => DeviceLinkBridge.initialize(),
         );

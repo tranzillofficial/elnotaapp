@@ -1,3 +1,4 @@
+import 'auth_destination.dart';
 import '../../../core/services/account_access_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/database/app_database.dart';
@@ -13,6 +14,8 @@ class AuthService extends GetxService {
   final Rx<UserSession?> currentSession = Rx<UserSession?>(null);
   final RxBool isLoading = false.obs;
   final lastError = Rxn<String>();
+
+  Future<String> landingRoute() => AuthDestination().resolve();
 
   bool get isAuthenticated => currentSession.value != null;
   String get activeWorkspaceId =>

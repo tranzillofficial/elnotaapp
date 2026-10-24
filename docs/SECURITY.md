@@ -51,3 +51,7 @@ Production scope: local accounting/auth/activation fixes. Cloud ledger sync and 
 
 
 Release 1.0.4 verification: analyzer clean; 89 automated tests passed (one demo-only test skipped). A real confirmed test account signed in via the shared backend and Web UI, reached activation instead of the ledger, and signed out. Direct unsigned invoice navigation redirected to login. No activation request or payment approval was fabricated for this UI test. Signed ARM32/ARM64 APKs and the Windows x64 installer were built, published and their download lengths verified. Native installation/offline restart on the physical Huawei is still unverified (no connected device). Earlier new-repository preview releases were retained as recoverable drafts so their anonymous-local installers are no longer advertised or downloadable through public release links. Previously installed offline binaries cannot be remotely changed by this release.
+
+
+## Admin landing fix (25 October 2026)
+Password login, QR login and restored sessions resolve the landing route using the existing server-only `elnota_is_admin` check. Verified admins open `/admin` rather than a merchant activation form. Existing inactive-account sessions opened at `/home` also resolve the role before displaying payment fields. A failed role lookup never grants admin access, and merchant activation requirements remain unchanged. No account is automatically activated and no server roles, schema or customer rows are changed. Targeted auth/admin tests cover admin routing, failed verification, merchant gating and revocation.

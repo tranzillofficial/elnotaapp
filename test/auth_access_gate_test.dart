@@ -9,11 +9,64 @@ import 'package:elnota/features/auth/views/account_approval_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:elnota/features/auth/services/auth_destination.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => Get.testMode = true);
   tearDown(() => Get.reset());
+
+  test(
+    'verified admin goes to dashboard without a merchant subscription',
+    () async {
+      expect(
+        await AuthDestination(isAdmin: () async => true).resolve(),
+        AppRoutes.admin,
+      );
+      expect(
+        await AuthDestination(isAdmin: () async => false).resolve(),
+        AppRoutes.home,
+      );
+      expect(
+        await AuthDestination(
+          isAdmin: () async => throw StateError('offline'),
+        ).resolve(),
+        AppRoutes.home,
+      );
+    },
+  );
+
+  testWidgets('admin opening home never sees the payment activation form', (
+    tester,
+  ) async {
+    Get.put(SupabaseService());
+    Get.put(AuthService());
+    final access = Get.put(AccountAccessService(automaticallyRefresh: false));
+    access.resolved.value = true;
+    await tester.pumpWidget(
+      GetMaterialApp(
+        theme: AppTheme.light,
+        getPages: [
+          GetPage(
+            name: AppRoutes.admin,
+            page: () => const Scaffold(body: Text('admin-dashboard')),
+          ),
+        ],
+        home: AccountApprovalGate(
+          destination: AuthDestination(isAdmin: () async => true),
+          child: const Scaffold(body: Text('merchant-ledger')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(Get.currentRoute, AppRoutes.admin);
+    expect(find.text('admin-dashboard'), findsOneWidget);
+    expect(find.text('تفعيل حساب ElNota'), findsNothing);
+    expect(find.text('merchant-ledger'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
 
   test('native launch never creates an anonymous local owner', () {
     Get.put(SupabaseService());
