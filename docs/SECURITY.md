@@ -55,3 +55,9 @@ Release 1.0.4 verification: analyzer clean; 89 automated tests passed (one demo-
 
 ## Admin landing fix (25 October 2026)
 Password login, QR login and restored sessions resolve the landing route using the existing server-only `elnota_is_admin` check. Verified admins open `/admin` rather than a merchant activation form. Existing inactive-account sessions opened at `/home` also resolve the role before displaying payment fields. A failed role lookup never grants admin access, and merchant activation requirements remain unchanged. No account is automatically activated and no server roles, schema or customer rows are changed. Targeted auth/admin tests cover admin routing, failed verification, merchant gating and revocation.
+
+
+## Activation request submission grant (25 October 2026)
+The deployed requests table had authenticated SELECT only, while clients submit pending requests directly. A real authenticated request reproduced HTTP 403 / PostgreSQL 42501. Migration `20261025010000_activation_request_insert_columns.sql` restores INSERT on the seven client submission columns only. It does not grant UPDATE, DELETE, reviewer/timestamp fields or anonymous access. Existing RLS requires self ownership and pending/unreviewed status; the existing security-definer trigger verifies confirmed identity, blocks suspended/deleted accounts and stamps sender details from server records. Approval remains in the admin-only RPC.
+
+Live verification used the existing clearly named technical test account: one pending request was saved and read back, self-approval/cross-user submission/review-field injection were denied, and the account remained inactive. The reference explicitly states TECHNICAL TEST ONLY / NOT A PAYMENT / DO NOT APPROVE. No customer ledger data was changed. Existing clients receive the permission fix without a new binary. A read-only regression check is in `supabase/tests/activation_request_permissions.sql`.
